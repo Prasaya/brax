@@ -42,7 +42,7 @@ class DoubleHumanoid(env.Env):
         # info to initialize humanoids apart
         self.torso1_idx = self.sys.body_idx['torso1']
         self.torso2_idx = self.sys.body_idx['torso2']
-        self.field_distance = 15
+        self.field_distance = 20
 
         body = bodies.Body.from_config(config)  # body object only used to get object mass and inertia
         body = take(body, body.idx[:-1])  # skip the floor body
@@ -53,8 +53,8 @@ class DoubleHumanoid(env.Env):
         """Resets the environment to an initial state."""
         qp = self.sys.default_qp()
         # move the humanoids to different positions
-        rng, target1 = self._random_target(rng)
-        pos = jax.ops.index_update(qp.pos, jax.ops.index[self.torso1_idx], target1)
+        # rng, target1 = self._random_target(rng)
+        # pos = jax.ops.index_update(qp.pos, jax.ops.index[self.torso1_idx], target1)
         rng, target2 = self._random_target(rng)
         pos = jax.ops.index_update(qp.pos, jax.ops.index[self.torso2_idx], target2)
 
