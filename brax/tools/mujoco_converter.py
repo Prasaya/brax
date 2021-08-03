@@ -69,7 +69,7 @@ def main(argv: Sequence[str]) -> None:
   # Save the config.
   if FLAGS.config_path:
     text_proto = text_format.MessageToString(config)
-    gfile.GFileText(FLAGS.config_path, mode='wt').write(text_proto)
+    gfile.GFile(FLAGS.config_path, mode='w').write(text_proto)
 
 
 if __name__ == '__main__':
