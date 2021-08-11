@@ -14,9 +14,12 @@
 
 """Trains a humanoid to run in the +x direction."""
 from typing import Tuple, List
+import functools
 import dataclasses
+
 import jax
 import jax.numpy as jnp
+import numpy as np
 
 import brax
 # from brax.envs import multiagent_env
@@ -78,24 +81,30 @@ class DoubleHumanoid(env.Env):
         # how far apart to initialize humanoids
         self.field_distance = 20
 
-    def set_agent_xyz(self, rng, qp_pos, agent_idx): 
+    def update_parts_xyz(self, carry, part_idx):
+        qp_pos, xyz_offset = carry
+        qp_pos = jax.ops.index_update(qp_pos, jax.ops.index[part_idx], 
+                                      xyz_offset+qp_pos[jax.ops.index[part_idx]]
+                                      )
+        return (qp_pos, xyz_offset), ()
+
+    def set_agent_xyz(self, carry, part_idxs): 
+        qp_pos, rng = carry
         rng, xyz_offset = self._random_target(rng)
-        for name, part_idx in getattr(self, f"agent{agent_idx}_idxs").items():
-            qp_pos = jax.ops.index_update(qp_pos, jax.ops.index[part_idx], 
-                                          xyz_offset+qp_pos[jax.ops.index[part_idx]]
-                                          )
-        return qp_pos, rng
+        (qp_pos, xyz_offset), _ = jax.lax.scan(
+          self.update_parts_xyz, (qp_pos, xyz_offset), part_idxs
+          )
+        return (qp_pos, rng), ()
     
     def reset(self, rng: jnp.ndarray) -> env.State:
         """Resets the environment to an initial state."""
         qp = self.sys.default_qp()
         # move the humanoids to different positions
         pos = qp.pos
-        for agent_idx in range(self.num_agents):
-            # TODO: where to put the rng?
-            pos, rng = self.set_agent_xyz(rng=rng, 
-                                     qp_pos=pos, 
-                                     agent_idx=agent_idx)
+        agents_parts_idxs = jnp.array([list(getattr(self, f"agent{i}_idxs").values()) for i in range(self.num_agents)])
+        (pos, rng), _ = jax.lax.scan(
+          self.set_agent_xyz, (pos, rng), agents_parts_idxs
+          )
         qp = dataclasses.replace(qp, pos=pos)
 
         info = self.sys.info(qp)
@@ -103,7 +112,8 @@ class DoubleHumanoid(env.Env):
                                  jax.random.uniform(rng, (self.action_size,)) * .5) # action size is for all agents
 
         all_obs = self._get_obs(qp, info, jnp.zeros((self.num_agents, self.agent_dof)))
-        reward, done = jnp.zeros((self.num_agents, 2))
+        reward = jnp.zeros((self.num_agents,))
+        done = 0
         steps = jnp.zeros(1)
         metrics = {
             'reward_linvel': jnp.zeros((self.num_agents,)),
@@ -136,11 +146,13 @@ class DoubleHumanoid(env.Env):
 
     def _get_obs(self, qp: brax.QP, info: brax.Info, action: jnp.ndarray):
         all_obs = []
+        # TODO: figure out how to jit self._get_agent_obs
+        # (qp, info, action), all_obs = jax.lax.scan(
+        #   self._get_agent_obs, (qp, info, action), jnp.arange(self.num_agents))
         for agent_idx in range(self.num_agents):
-           obs = self._get_agent_obs(agent_idx=agent_idx, agent_action=action[agent_idx],
-                                     qp=qp, info=info)
-           all_obs.append(jnp.expand_dims(obs, 0))
-        return jnp.concatenate(all_obs, axis=0) # agent axis is 0
+           (qp, info, action), obs = self._get_agent_obs((qp, info, action), agent_idx)
+           all_obs.append(obs)
+        return all_obs
 
     def _compute_reward(self, state: env.State, action: jnp.ndarray, qp: brax.QP):
         # self.mass has shape (num_agents, num_bodies_per_agent, 1)
@@ -153,12 +165,14 @@ class DoubleHumanoid(env.Env):
         com_before = jnp.sum(pos_before * self.mass, axis=1) / jnp.sum(self.mass, axis=1)
         com_after = jnp.sum(pos_after * self.mass, axis=1) / jnp.sum(self.mass, axis=1)
 
-        lin_vel_cost = 1.25 * (com_after[0] - com_before[0]) / self.sys.config.dt
+        lin_vel_cost = 1.25 * (com_after[:, 0] - com_before[:, 0]) / self.sys.config.dt
+
         reshaped_actions = jnp.reshape(action, (self.num_agents, self.agent_dof))
-        quad_ctrl_cost = .01 * jnp.sum(jnp.square(action), axis=1)
+        quad_ctrl_cost = .01 * jnp.sum(jnp.square(reshaped_actions), axis=1)
         # can ignore contact cost, see: https://github.com/openai/gym/issues/1541
-        quad_impact_cost = 0.0 * jnp.ones(self.num_agents)
+        quad_impact_cost = jnp.zeros(self.num_agents)
         alive_bonus = 5.0 * jnp.ones(self.num_agents)
+
         reward = lin_vel_cost - quad_ctrl_cost - quad_impact_cost + alive_bonus
         return reward, lin_vel_cost, quad_ctrl_cost, alive_bonus, quad_impact_cost
     
@@ -167,7 +181,7 @@ class DoubleHumanoid(env.Env):
         done_thres
         """
         torsos_idxs = jnp.arange(self.num_agents) * self.num_body_parts
-        torsos_zdim = take(qp.pos[:, 2], torso_idxs)
+        torsos_zdim = take(qp.pos[:, 2], torsos_idxs)
 
         done_cond0 = jnp.where(steps >= self.episode_length, x=1.0, y=0.0)
         done_cond1 = jnp.where(torsos_zdim < 0.6, x=1.0, y=0.0)
@@ -180,20 +194,16 @@ class DoubleHumanoid(env.Env):
         done = jnp.where(done_ratio > done_thres, x=1.0, y=0.0)
         return done
 
-    def _get_agent_obs(self, 
-                       agent_idx: int,
-                       agent_action: jnp.ndarray,
-                       qp: brax.QP, 
-                       info: brax.Info
-                       ) -> jnp.ndarray:
+    def _get_agent_obs(self, carry, agent_idx) -> jnp.ndarray:
         """Observe humanoid body position, velocities, and angles."""
+        qp, info, action = carry
         qpos, qvel = self._get_agent_qpos_qvel(agent_idx, qp)
-        qfrc_actuator = self._get_agent_qfrc(agent_idx, agent_action)
+        qfrc_actuator = self._get_agent_qfrc(agent_idx, action[agent_idx])
         cfrc_ext = self._get_agent_cfrc_ext(agent_idx, info)
         cinert, cvel = self._get_agent_com_obs(agent_idx, qp)
-
-        return jnp.concatenate(qpos + qvel + cinert + cvel + qfrc_actuator +
-                               cfrc_ext)
+        obs = jnp.expand_dims(jnp.concatenate(qpos + qvel + cinert + cvel + qfrc_actuator + \
+                               cfrc_ext), axis=0)
+        return (qp, info, action), obs
 
     def _get_agent_qpos_qvel(self, agent_idx: int, qp: brax.QP) -> Tuple[List[jnp.ndarray], List[jnp.ndarray]]:
         """
@@ -205,11 +215,12 @@ class DoubleHumanoid(env.Env):
         joint_3d_angle, joint_3d_vel = self.sys.joint_spherical.angle_vel(qp)
 
         idx_offset = agent_idx * self.num_joints_1d
-
         joint_1d_angle = take(joint_1d_angle, jnp.arange(idx_offset, idx_offset + self.num_joints_1d))
         joint_1d_vel = take(joint_1d_vel, jnp.arange(idx_offset, idx_offset + self.num_joints_1d))
+        idx_offset = agent_idx * self.num_joints_2d
         joint_2d_angle = take(joint_2d_angle, jnp.arange(idx_offset, idx_offset + self.num_joints_2d))
         joint_2d_vel = take(joint_2d_vel, jnp.arange(idx_offset, idx_offset + self.num_joints_2d))
+        idx_offset = agent_idx * self.num_joints_3d
         joint_3d_angle = take(joint_3d_angle, jnp.arange(idx_offset, idx_offset + self.num_joints_3d))
         joint_3d_vel = take(joint_3d_vel, jnp.arange(idx_offset, idx_offset + self.num_joints_3d))
 
@@ -235,24 +246,23 @@ class DoubleHumanoid(env.Env):
 
     def _get_agent_qfrc(self, agent_idx: int, agent_action: jnp.ndarray) -> List[jnp.ndarray]:
         # actuator forces
-        idx_offset = agent_idx * self.agent_dof
-        print("AGENT IDX: ", agent_idx)
-        print("AGENT ACTION ", agent_action.shape)
-        print("TORQUE 1D SHAPE ", self.torque_1d_act_idx.shape)
+        idx_offset = agent_idx * self.num_joints_1d
         torque_1d = take(agent_action, self.torque_1d_act_idx)
         torque_1d *= take(self.sys.torque_1d.strength, 
-          jnp.arange(agent_idx * self.num_joints_1d, agent_idx * self.num_joints_1d + self.num_joints_1d))
+          jnp.arange(idx_offset, idx_offset + self.num_joints_1d))
 
+        idx_offset = agent_idx * self.num_joints_2d
         torque_2d = take(agent_action, self.torque_2d_act_idx)
         torque_2d = torque_2d.reshape(torque_2d.shape[:-2] + (-1,))
         torque_2d *= jnp.repeat(take(self.sys.torque_2d.strength, 
-          jnp.arange(agent_idx * self.num_joints_2d, agent_idx * self.num_joints_2d + self.num_joints_2d)),
+          jnp.arange(idx_offset, idx_offset + self.num_joints_2d)),
           2)
 
+        idx_offset = agent_idx * self.num_joints_3d
         torque_3d = take(agent_action, self.torque_3d_act_idx)
         torque_3d = torque_3d.reshape(torque_3d.shape[:-2] + (-1,))
         torque_3d *= jnp.repeat(take(self.sys.torque_3d.strength, 
-          jnp.arange(agent_idx * self.num_joints_3d, agent_idx * self.num_joints_3d + self.num_joints_3d)),
+          jnp.arange(idx_offset, idx_offset + self.num_joints_3d)),
           3)
         qfrc_actuator = [torque_1d, torque_2d, torque_3d]
         return qfrc_actuator

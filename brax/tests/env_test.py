@@ -30,13 +30,15 @@ class EnvTest(parameterized.TestCase):
   # @parameterized.parameters(('ant',), ('fetch',), ('grasp',), ('humanoid',),
   #                           ('ur5e',), ('reacher',), ('reacherangle',))
   @parameterized.parameters(('doublehumanoid',))
+  # @parameterized.parameters(('humanoid',))
 
   def testSpeed(self, env_name):
     batch_size = 128
     episode_length = 1000
 
     env = envs.create(env_name, batch_size=batch_size)
-    zero_action = np.zeros((batch_size, env.action_size))
+    zero_action = np.zeros((batch_size, env.num_agents, 17))
+    # zero_action = np.zeros((batch_size, env.action_size))
 
     @jax.jit
     def run_env(state):
