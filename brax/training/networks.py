@@ -86,3 +86,20 @@ def make_models(policy_params_size: int,
   policy_model = make_model([32, 32, 32, 32, policy_params_size], obs_size)
   value_model = make_model([256, 256, 256, 256, 256, 1], obs_size)
   return policy_model, value_model
+
+def make_multiagent_models(policy_params_sizes: list,
+                           num_agents: int,
+                           obs_size: int) -> Tuple[FeedForwardModel, FeedForwardModel]:
+  """Creates models for policy and value functions.
+
+  Args:
+    policy_params_size: number of params that a policy network should generate
+    obs_size: size of an observation
+
+  Returns:
+    a model for policy and a model for value function
+  """
+  # TODO: modify obs_size to be a list
+  policy_models = [make_model([32, 32, 32, 32, policy_params_sizes[i]], obs_size) for i in range(num_agents)]
+  value_model = make_model([256, 256, 256, 256, 256, num_agents], obs_size)
+  return policy_models, value_model
