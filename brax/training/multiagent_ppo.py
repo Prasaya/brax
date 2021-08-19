@@ -138,11 +138,9 @@ def compute_ppo_loss(
 
   rewards = data.rewards[1:] * reward_scaling
   # dones is scalar
-  print(f"{data.dones[1:].shape=}")
   truncation = jnp.repeat(jnp.expand_dims(data.dones[1:], axis=-1), 
                           repeats=num_agents, 
                           axis=-1)
-  print(f"{truncation.shape=}")
 
   vs, advantages = compute_gae(
       truncation=truncation,
@@ -189,7 +187,6 @@ def compute_ppo_loss(
   entropies = jnp.concatenate(entropies, axis=-1)
 
   advantages = jnp.concatenate([advantages[..., i] for i in range(num_agents)], axis=-1)
-  print(f"{advantages.shape=}")
 
   # Policy loss
   # surrogate_loss_concat = jnp.dot(rho_s_concat, advantages_concat)
