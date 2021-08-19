@@ -76,7 +76,10 @@ def create_observation_normalizer(obs_size, normalize_observations=True,
 def make_data_and_apply_fn(obs_size, normalize_observations=True):
   """Creates data and an apply function for the normalizer."""
   if normalize_observations:
-    data = (jnp.zeros(()), jnp.zeros((obs_size,)), jnp.ones((obs_size,)))
+    if isinstance(obs_size, tuple):
+      data = (jnp.zeros(()), jnp.zeros(obs_size), jnp.ones(obs_size))      
+    else:
+      data = (jnp.zeros(()), jnp.zeros((obs_size,)), jnp.ones((obs_size,)))
     def apply_fn(params, obs, std_min_value=1e-6, std_max_value=1e6):
       normalization_steps, running_mean, running_variance = params
       variance = running_variance / (normalization_steps + 1.0)

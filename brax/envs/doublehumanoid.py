@@ -32,12 +32,14 @@ from google.protobuf import text_format
 
 class DoubleHumanoid(env.Env):
     """Trains a humanoid to run in the +x direction."""
-
     def __init__(self, **kwargs):
         # TODO: define a function to copy the system config automatically based on num_agents
         self.num_agents = 2
         config = text_format.Parse(_SYSTEM_CONFIG, brax.Config())
         super().__init__(config, **kwargs)
+        # TODO: define these as properties in multiagent env
+        self.agent_action_size = 17
+        self.agent_observation_size = 293
 
         # body info
         self.body_parts = ["torso", "lwaist", "pelvis", 
@@ -152,12 +154,13 @@ class DoubleHumanoid(env.Env):
         for agent_idx in range(self.num_agents):
            (qp, info, action), obs = self._get_agent_obs((qp, info, action), agent_idx)
            all_obs.append(obs)
+        all_obs = jnp.array(all_obs)
+        # humanoid: (128, 299)
+        # double humanoid: (128, 2, 293)
+        # TODO: Add world features! (floor loc)
         return all_obs
 
     def _compute_reward(self, state: env.State, action: jnp.ndarray, qp: brax.QP):
-        # self.mass has shape (num_agents, num_bodies_per_agent, 1)
-        # self.inertia has shape (num_agents, num_bodies_per_agent, 3)
-
         # TODO: how to ensure ordering of reshaping is correct??
         pos_before = jnp.reshape(state.qp.pos[:-1], (self.num_agents, self.num_body_parts, 3))  # ignore floor at last index
         pos_after = jnp.reshape(qp.pos[:-1], (self.num_agents, self.num_body_parts, 3))  # ignore floor at last index
@@ -201,8 +204,11 @@ class DoubleHumanoid(env.Env):
         qfrc_actuator = self._get_agent_qfrc(agent_idx, action[agent_idx])
         cfrc_ext = self._get_agent_cfrc_ext(agent_idx, info)
         cinert, cvel = self._get_agent_com_obs(agent_idx, qp)
-        obs = jnp.expand_dims(jnp.concatenate(qpos + qvel + cinert + cvel + qfrc_actuator + \
-                               cfrc_ext), axis=0)
+        # obs = jnp.expand_dims(jnp.concatenate(qpos + qvel + cinert + cvel + qfrc_actuator + \
+        #                        cfrc_ext), axis=0)
+        obs = jnp.concatenate(qpos + qvel + cinert + cvel + qfrc_actuator + \
+                               cfrc_ext)
+
         return (qp, info, action), obs
 
     def _get_agent_qpos_qvel(self, agent_idx: int, qp: brax.QP) -> Tuple[List[jnp.ndarray], List[jnp.ndarray]]:

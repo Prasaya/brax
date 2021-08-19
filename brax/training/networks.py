@@ -101,5 +101,5 @@ def make_multiagent_models(policy_params_sizes: list,
   """
   # TODO: modify obs_size to be a list
   policy_models = [make_model([32, 32, 32, 32, policy_params_sizes[i]], obs_size) for i in range(num_agents)]
-  value_model = make_model([256, 256, 256, 256, 256, num_agents], obs_size)
+  value_model = make_model([256, 256, 256, 256, 256, num_agents], obs_size * num_agents)
   return policy_models, value_model

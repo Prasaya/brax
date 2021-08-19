@@ -54,6 +54,7 @@ class EnvTest(parameterized.TestCase):
     # warmup
     rng = jax.random.split(jax.random.PRNGKey(0), batch_size)
     state = env.reset(rng)
+    print("RESET STATE SHAPE ", state.obs.shape)
     state = run_env(state)
     state.done.block_until_ready()
 

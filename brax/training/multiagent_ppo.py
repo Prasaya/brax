@@ -150,7 +150,6 @@ def compute_ppo_loss(
       lambda_=lambda_,
       discount=discounting)
   rho_s = jnp.exp(target_action_log_probs - behaviour_action_log_probs)
-
   surrogate_loss1 = rho_s * advantages
   surrogate_loss2 = jnp.clip(rho_s, 1 - ppo_epsilon,
                              1 + ppo_epsilon) * advantages

@@ -27,14 +27,17 @@ from absl.testing import parameterized
 from flax import serialization
 import jax
 from brax import envs
-from brax.training import ppo
+from brax.training import multiagent_ppo1 as multiagent_ppo # ppo
+# from brax.training import ppo as multiagent_ppo
 
 
-def run_test(seed, total_env_steps=50000000, normalize_observations=True):
-  env_name = 'ant'
+def run_test(seed, total_env_steps=2000, # 50000000, 
+             normalize_observations=True):
+  env_name = 'doublehumanoid'  # 'ant'
+  num_agents = 2
   eval_frequency = 10
   reward_scaling = 10
-  episode_length = 1000
+  episode_length = 50 # 1000
   action_repeat = 1
   unroll_length = 5
   num_minibatches = 32
@@ -42,12 +45,13 @@ def run_test(seed, total_env_steps=50000000, normalize_observations=True):
   discounting = 0.95
   learning_rate = 2.25e-4
   entropy_cost = 1e-2
-  num_envs = 2048
-  batch_size = 1024
+  num_envs = 4 # 2048
+  batch_size = 256 # 1024
   max_devices_per_host = 8
   env_fn = envs.create_fn(env_name)
 
-  inference, params, metrics = ppo.train(
+  inference, params, metrics = multiagent_ppo.train( # ppo.train(
+      num_agents=num_agents, # multiagent arg
       environment_fn=env_fn,
       action_repeat=action_repeat,
       num_envs=num_envs,
@@ -81,11 +85,14 @@ class TrainingTest(parameterized.TestCase):
   def testModelEncoding(self, normalize_observations=True):
     _, params, _, env_fn = run_test(
         seed=0,
-        total_env_steps=1000,
+        total_env_steps=50, # 1000,
         normalize_observations=normalize_observations)
     env = env_fn()
-    base_params, inference = ppo.make_params_and_inference_fn(
-        env.observation_size, env.action_size, normalize_observations)
+    # base_params, inference = ppo.make_params_and_inference_fn( # ppo
+    #     env.observation_size, env.action_size, normalize_observations)
+    base_params, inference = multiagent_ppo.make_params_and_inference_fn( # ppo
+        env.agent_observation_size, env.agent_action_size, 2,  normalize_observations)
+
     byte_encoding = serialization.to_bytes(params)
     decoded_params = serialization.from_bytes(base_params, byte_encoding)
 

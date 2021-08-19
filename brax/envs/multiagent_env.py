@@ -27,7 +27,7 @@ from brax.envs import Env
 
 class MultiagentEnv(Env):
   """Wrapper to add multiagent functionality"""
-  def __init__(self,num_agents: int = 1, **kwargs):
+  def __init__(self, num_agents: int = 1, **kwargs):
     self.num_agents = n_agents
     super(MultiagentEnv, self).__init__(**kwargs)
 
@@ -45,4 +45,4 @@ class MultiagentEnv(Env):
   def agent_action_size(self) -> int: 
     """The size of the action vector for each agent."""
     # TODO: update this!
-    return self.sys.num_joint_dof
+    return self.sys.num_joint_dof / self.num_agents ## 
