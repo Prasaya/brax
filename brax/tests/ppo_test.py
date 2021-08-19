@@ -27,7 +27,7 @@ from absl.testing import parameterized
 from flax import serialization
 import jax
 from brax import envs
-from brax.training import multiagent_ppo1 as multiagent_ppo # ppo
+from brax.training import multiagent_ppo
 # from brax.training import ppo as multiagent_ppo
 
 

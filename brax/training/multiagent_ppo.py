@@ -19,7 +19,7 @@ See: https://arxiv.org/pdf/1707.06347.pdf
 
 import functools
 import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, List
 
 from absl import logging
 import flax
@@ -30,6 +30,7 @@ from brax.training import distribution
 from brax.training import env
 from brax.training import networks
 from brax.training import normalization
+from brax.physics.base import take
 
 
 def compute_gae(truncation: jnp.ndarray,
@@ -57,7 +58,6 @@ def compute_gae(truncation: jnp.ndarray,
       train a baseline (V(x_t) - vs_t)^2.
     A float32 tensor of shape [T, B] of advantages.
   """
-
   truncation_mask = 1 - truncation
   # Append bootstrapped value to get [v1, ..., v_t+1]
   values_t_plus_1 = jnp.concatenate(
@@ -106,22 +106,24 @@ class TrainingState:
 
 
 def compute_ppo_loss(
-        models: Dict[str, Any],
-        data: StepData,
-        rng: jnp.ndarray,
-        parametric_action_distribution: distribution.ParametricDistribution,
-        policy_apply: Any,
-        value_apply: Any,
-        entropy_cost: float = 1e-4,
-        discounting: float = 0.9,
-        reward_scaling: float = 1.0,
-        lambda_: float = 0.95,
-        ppo_epsilon: float = 0.3):
+    models: Dict[str, Any],
+    data: StepData,
+    rng: jnp.ndarray,
+    num_agents: int,
+    parametric_action_distributions: List[distribution.ParametricDistribution],
+    policies_apply: List[Any],
+    value_apply: Any,
+    entropy_cost: float = 1e-4,
+    discounting: float = 0.9,
+    reward_scaling: float = 1.0,
+    lambda_: float = 0.95,
+    ppo_epsilon: float = 0.3):
   """Computes PPO loss."""
-  policy_params, value_params = models['policy'], models['value']
-  policy_logits = policy_apply(policy_params, data.obs[:-1])
-  baseline = value_apply(value_params, data.obs)
-  baseline = jnp.squeeze(baseline, axis=-1)
+  policies_params = [models[f'policy{i}'] for i in range(num_agents)]
+  value_params = models['value']
+
+  flattened_data_obs = jnp.concatenate([data.obs[..., i, :] for i in range(num_agents)], axis=-1)
+  baseline = value_apply(value_params, flattened_data_obs)
 
   # Use last baseline value (from the value function) to bootstrap.
   bootstrap_value = baseline[-1]
@@ -135,12 +137,12 @@ def compute_ppo_loss(
   # logits = logits[:-1]
 
   rewards = data.rewards[1:] * reward_scaling
-  truncation = data.dones[1:]
-
-  target_action_log_probs = parametric_action_distribution.log_prob(
-      policy_logits, data.actions)
-  behaviour_action_log_probs = parametric_action_distribution.log_prob(
-      data.logits, data.actions)
+  # dones is scalar
+  print(f"{data.dones[1:].shape=}")
+  truncation = jnp.repeat(jnp.expand_dims(data.dones[1:], axis=-1), 
+                          repeats=num_agents, 
+                          axis=-1)
+  print(f"{truncation.shape=}")
 
   vs, advantages = compute_gae(
       truncation=truncation,
@@ -149,20 +151,55 @@ def compute_ppo_loss(
       bootstrap_value=bootstrap_value,
       lambda_=lambda_,
       discount=discounting)
-  rho_s = jnp.exp(target_action_log_probs - behaviour_action_log_probs)
-  surrogate_loss1 = rho_s * advantages
-  surrogate_loss2 = jnp.clip(rho_s, 1 - ppo_epsilon,
-                             1 + ppo_epsilon) * advantages
-
-  policy_loss = -jnp.mean(jnp.minimum(surrogate_loss1, surrogate_loss2))
 
   # Value function loss
   v_error = vs - baseline
   v_loss = jnp.mean(v_error * v_error) * 0.5 * 0.5
 
+  obs_list = [jnp.take(data.obs[:-1], i, axis=-2) for i in range (num_agents)] # 1 is agent axis, 0 is batch axis
+  actions_list = [jnp.take(data.actions, i, axis=-2) for i in range (num_agents)] # 1 is agent axis, 0 is batch axis
+  logits_list = [jnp.take(data.logits, i, axis=-2) for i in range (num_agents)] # 1 is agent axis, 0 is batch axis
+
+  policies_logits = jax.tree_multimap(
+    lambda policy_apply, policy_params, obs: policy_apply(policy_params, obs), # :-1 is it like a squeeze??
+    policies_apply, policies_params, obs_list
+    )
+
+  def compute_rho_entropy(key, parametric_action_distr, 
+                          policy_logits, 
+                          data_actions, data_logits,
+                          ):
+    target_action_log_probs = parametric_action_distr.log_prob(
+        policy_logits, data_actions)
+    behaviour_action_log_probs = parametric_action_distr.log_prob(
+        data_logits, data_actions)
+
+    rho = jnp.exp(target_action_log_probs - behaviour_action_log_probs)
+    entropy = parametric_action_distr.entropy(policy_logits, key)
+    return rho, entropy
+
+  # should we pass back RNG?
+  rng_list = list(jax.random.split(rng, num_agents+1))
+  rho_s, entropies = jax.tree_multimap(
+    compute_rho_entropy, 
+    rng_list[1:], parametric_action_distributions,
+    policies_logits, actions_list, logits_list
+    )
+  rho_s = jnp.concatenate(rho_s, axis=-1)
+  entropies = jnp.concatenate(entropies, axis=-1)
+
+  advantages = jnp.concatenate([advantages[..., i] for i in range(num_agents)], axis=-1)
+  print(f"{advantages.shape=}")
+
+  # Policy loss
+  # surrogate_loss_concat = jnp.dot(rho_s_concat, advantages_concat)
+  surrogate_loss1 = rho_s * advantages
+  surrogate_loss2 = jnp.clip(rho_s, 1 - ppo_epsilon, 
+                             1 + ppo_epsilon) * advantages
+  policy_loss = -jnp.mean(jnp.minimum(surrogate_loss1, surrogate_loss2))
+
   # Entropy reward
-  entropy = jnp.mean(
-      parametric_action_distribution.entropy(policy_logits, rng))
+  entropy = jnp.mean(entropies)
   entropy_loss = entropy_cost * -entropy
 
   return policy_loss + v_loss + entropy_loss, {
@@ -173,11 +210,26 @@ def compute_ppo_loss(
   }
 
 
+def multiagent_forward_pass_eval(key, policy_model, policy_params, 
+                                 parametric_action_distr, agent_obs):
+  agent_logits = policy_model.apply(policy_params, agent_obs)
+  agent_actions = parametric_action_distr.sample(agent_logits, key)
+  return agent_actions
+
+
+def multiagent_forward_pass(key, policy_model, policy_params, 
+                            parametric_action_distr, agent_obs):
+  agent_logits = policy_model.apply(policy_params, agent_obs)
+  agent_actions = parametric_action_distr.sample_no_postprocessing(agent_logits, key)
+  agent_actions = parametric_action_distr.postprocess(agent_actions)
+  return agent_actions, agent_logits
+
+
 def train(
     environment_fn: Callable[..., envs.Env],
+    num_agents: int,
     num_timesteps,
     episode_length: int,
-    num_agents: int,
     action_repeat: int = 1,
     num_envs: int = 1,
     max_devices_per_host: Optional[int] = None,
@@ -186,7 +238,7 @@ def train(
     entropy_cost=1e-4,
     discounting=0.9,
     seed=0,
-    unroll_length=10, # what is the purpose of unroll_length?
+    unroll_length=10,
     batch_size=32,
     num_minibatches=16,
     num_update_epochs=2,
@@ -196,7 +248,7 @@ def train(
     progress_fn: Optional[Callable[[int, Dict[str, Any]], None]] = None,
 ):
   """PPO training."""
-  assert num_agents * batch_size * num_minibatches % num_envs == 0
+  assert batch_size * num_minibatches % num_envs == 0
   xt = time.time()
 
   process_count = jax.process_count()
@@ -226,10 +278,9 @@ def train(
       episode_length=episode_length)
   key_envs = jax.random.split(key_env, local_devices_to_use)
   tmp_env_states = []
-  for key in key_envs: # device splitting, not batch_size
-    first_state, step_fn = env.wrap(core_env, key) # a set of first_states from current device batch
+  for key in key_envs:
+    first_state, step_fn = env.wrap(core_env, key)
     tmp_env_states.append(first_state)
-
   first_state = jax.tree_multimap(lambda *args: jnp.stack(args),
                                   *tmp_env_states)
 
@@ -239,31 +290,36 @@ def train(
       episode_length=episode_length)
   eval_first_state, eval_step_fn = env.wrap(core_eval_env, key_eval)
 
-  parametric_action_distribution = distribution.NormalTanhDistribution(
-      event_size=core_env.agent_action_size)
+  parametric_action_distributions = [distribution.NormalTanhDistribution(
+        event_size=core_env.agent_action_size) for i in range(num_agents)]
 
-  policy_model, value_model = networks.make_models(
-      parametric_action_distribution.param_size,
-      core_env.agent_observation_size)
+  policy_models, value_model = networks.make_multiagent_models(
+      [act_distr.param_size for act_distr in parametric_action_distributions],
+      num_agents,
+      core_env.observation_size)
   key_policy, key_value = jax.random.split(key_models)
 
   optimizer_def = flax.optim.Adam(learning_rate=learning_rate)
-  optimizer = optimizer_def.create({'policy': policy_model.init(key_policy),
-                                    'value': value_model.init(key_value)})
+  optimizer = optimizer_def.create({**{f'policy{i}': policy_models[i].init(key_policy) for i in range(num_agents)},
+                                    'value': value_model.init(key_value)
+                                    }
+                                    )
   optimizer = normalization.bcast_local_devices(
       optimizer, local_devices_to_use)
 
   normalizer_params, obs_normalizer_update_fn, obs_normalizer_apply_fn = (
       normalization.create_observation_normalizer(
-          core_env.agent_observation_size, normalize_observations,
-          num_leading_batch_dims=2, pmap_to_devices=local_devices_to_use))
+          (num_agents, core_env.agent_observation_size), normalize_observations,
+          num_leading_batch_dims=2, pmap_to_devices=local_devices_to_use)) # why is # leading batch dims 2?
 
+  # TODO: replace all core_env.observation_size, core_env.action_size
   key_debug = jax.random.PRNGKey(seed + 666)
 
   loss_fn = functools.partial(
       compute_ppo_loss,
-      parametric_action_distribution=parametric_action_distribution,
-      policy_apply=policy_model.apply,
+      num_agents=num_agents,
+      parametric_action_distributions=parametric_action_distributions,
+      policies_apply=[policy_model.apply for policy_model in policy_models],
       value_apply=value_model.apply,
       entropy_cost=entropy_cost,
       discounting=discounting,
@@ -272,77 +328,64 @@ def train(
   grad_loss = jax.grad(loss_fn, has_aux=True)
 
   def do_one_step_eval(carry, unused_target_t):
-    # TODO: modify eval_step_fn to apply to n agent states
-    state, policy_params, normalizer_params, key = carry
-    gather_obs, gather_rew, gather_done, device_batchsize = reshape_state(state.core)
-
-    key, key_sample = jax.random.split(key)
+    state, policies_params, normalizer_params, key = carry
     # TODO: Make this nicer ([0] comes from pmapping).
     obs = obs_normalizer_apply_fn(
-        jax.tree_map(lambda x: x[0], normalizer_params), gather_obs)
-    logits = policy_model.apply(policy_params, obs)
-    actions = parametric_action_distribution.sample(logits, key_sample)
-    ungathered_actions = ungather_actions(actions, device_batchsize)
-    nstate = eval_step_fn(state, ungathered_actions)
-    return (nstate, policy_params, normalizer_params, key), ()
+        jax.tree_map(lambda x: x[0], normalizer_params), state.core.obs)
+    obs_list = [jnp.take(obs, i, axis=1) for i in range (num_agents)] # 1 is agent axis, 0 is batch axis
+    keys = jax.random.split(key, num_agents+1)
+    keys = [k for k in keys]
+
+    actions = jax.tree_multimap(
+      multiagent_forward_pass_eval, keys[1:], policy_models, policies_params, parametric_action_distributions, obs_list
+      )
+    actions = jnp.stack(actions, axis=1) # shape is (256, 17); want shape (128, 2, 17)
+    nstate = eval_step_fn(state, actions)
+    return (nstate, policies_params, normalizer_params, keys[0]), ()
 
   @jax.jit
-  def run_eval(state, key, policy_params, normalizer_params):
-    policy_params = jax.tree_map(lambda x: x[0], policy_params)
+  def run_eval(state, key, policies_params, normalizer_params):
+    # TODO: does this tree_map need to go down one more level??
+    policies_params = jax.tree_map(lambda x: x[0], policies_params)
     (state, _, _, key), _ = jax.lax.scan(
-        do_one_step_eval, (state, policy_params, normalizer_params, key), (),
+        do_one_step_eval, (state, policies_params, normalizer_params, key), (),
         length=episode_length // action_repeat)
     return state, key
 
-  def gather_state(state_core):
-    # collapse agents into the batch
-    # assumption: shape is (device_batchsize, obs)
-    device_batchsize = state_core.obs.shape[0]
-    gather_obs = jnp.reshape(state_core.obs, newshape=(device_batchsize*self.num_agents, -1))
-    gather_rew = jnp.reshape(state_core.reward, newshape=(device_batchsize*self.num_agents, -1))
-    gather_done = jnp.reshape(state_core.done, newshape=(device_batchsize*self.num_agents, -1))
-    return gather_obs, gather_rew, gather_done, device_batchsize
-
-  def ungather_actions(actions, device_batchsize):
-    ungathered_actions = jnp.reshape(actions, newshape=(device_batchsize, self.num_agents, -1))
-    return ungathered_actions
-
   def do_one_step(carry, unused_target_t):
-    # MODIFY DATA BY RESHAPE INTO BATCH x NUM_AGENTS
-    state, normalizer_params, policy_params, key = carry
-    gather_obs, gather_rew, gather_done, device_batchsize = reshape_state(state.core)
+    state, normalizer_params, policies_params, key = carry
+    normalized_obs = obs_normalizer_apply_fn(normalizer_params, state.core.obs)
+    obs_list = [jnp.take(normalized_obs, i, axis=1) for i in range(num_agents)] # 1 is agent axis, 0 is batch axis
+    keys = jax.random.split(key, num_agents+1)
+    keys = [k for k in keys]
 
-    key, key_sample = jax.random.split(key)
-    normalized_obs = obs_normalizer_apply_fn(normalizer_params, gather_obs)
-    logits = policy_model.apply(policy_params, normalized_obs)
-    actions = parametric_action_distribution.sample_no_postprocessing(
-        logits, key_sample)
-    postprocessed_actions = parametric_action_distribution.postprocess(actions)
-    ungathered_actions = ungather_actions(actions, device_batchsize)
-    nstate = step_fn(state, ungathered_actions)
-
-    data = StepData(obs=gather_obs,
-                    rewards=gather_rew,
-                    dones=gather_done,
-                    actions=actions,
-                    logits=logits)
-    return (nstate, normalizer_params, policy_params, key), data
+    ret = jax.tree_multimap(
+      multiagent_forward_pass, keys[1:], policy_models, policies_params, parametric_action_distributions, obs_list
+      )
+    postprocessed_actions, logits = list(zip(*ret))  # unzip list of results
+    postprocessed_actions = jnp.stack(postprocessed_actions, axis=1) # shape is (256, 17); want shape (128, 2, 17)
+    logits = jnp.stack(logits, axis=1)
+    nstate = step_fn(state, postprocessed_actions)
+    return (nstate, normalizer_params, policies_params, keys[0]), StepData(
+        obs=state.core.obs,
+        rewards=state.core.reward,
+        dones=state.core.done,
+        actions=postprocessed_actions,
+        logits=logits)
 
   def generate_unroll(carry, unused_target_t):
-    state, normalizer_params, policy_params, key = carry
+    state, normalizer_params, policies_params, key = carry
     (state, _, _, key), data = jax.lax.scan(
-        do_one_step, (state, normalizer_params, policy_params, key), (),
+        do_one_step, (state, normalizer_params, policies_params, key), (),
         length=unroll_length)
-    gather_obs, gather_rew, gather_done, device_batchsize = reshape_state(state.core)
-
     data = data.replace(
         obs=jnp.concatenate(
-            [data.obs, jnp.expand_dims(gather_obs, axis=0)]),
+            [data.obs, jnp.expand_dims(state.core.obs, axis=0)]),
         rewards=jnp.concatenate(
-            [data.rewards, jnp.expand_dims(gather_rew, axis=0)]),
+            [data.rewards, jnp.expand_dims(state.core.reward, axis=0)]),
         dones=jnp.concatenate(
-            [data.dones, jnp.expand_dims(gather_done, axis=0)]))
-    return (state, normalizer_params, policy_params, key), data
+            [data.dones, jnp.expand_dims(state.core.done, axis=0)]))
+    return (state, normalizer_params, policies_params, key), data
 
   def update_model(carry, data):
     optimizer, key = carry
@@ -356,7 +399,6 @@ def train(
     optimizer, data, key = carry
     key, key_perm, key_grad = jax.random.split(key, 3)
     permutation = jax.random.permutation(key_perm, data.obs.shape[1])
-
     def convert_data(data, permutation):
       data = jnp.take(data, permutation, axis=1, mode='clip')
       data = jnp.reshape(
@@ -368,13 +410,14 @@ def train(
         update_model, (optimizer, key_grad), ndata, length=num_minibatches)
     return (optimizer, data, key), metrics
 
-  def run_epoch(carry, unused_t): # TODO: figure out how batch size fits in here
+  def run_epoch(carry, unused_t):
     training_state, state = carry
     key_minimize, key_generate_unroll, new_key = jax.random.split(
         training_state.key, 3)
     (state, _, _, _), data = jax.lax.scan(
-        generate_unroll, (state, training_state.normalizer_params,
-                          training_state.optimizer.target['policy'],
+        generate_unroll, (state, 
+                          training_state.normalizer_params,
+                          [training_state.optimizer.target[f'policy{i}'] for i in range(num_agents)],
                           key_generate_unroll), (),
         length=batch_size * num_minibatches // num_envs)
     # make unroll first
@@ -428,7 +471,7 @@ def train(
     if process_id == 0:
       eval_state, key_debug = (
           run_eval(eval_first_state, key_debug,
-                   training_state.optimizer.target['policy'],
+                   [training_state.optimizer.target[f'policy{i}'] for i in range(num_agents)],
                    training_state.normalizer_params))
       eval_state.total_episodes.block_until_ready()
       eval_walltime += time.time() - t
@@ -469,17 +512,20 @@ def train(
   # To undo the pmap.
   normalizer_params = jax.tree_map(lambda x: x[0],
                                    training_state.normalizer_params)
-  policy_params = jax.tree_map(lambda x: x[0],
-                               training_state.optimizer.target['policy'])
+  # Do we need to undo the pmap some other way for n policies?
+  policies_params = jax.tree_map(lambda x: x[0],
+                               [training_state.optimizer.target[f'policy{i}'] for i in range(num_agents)]
+                               )
 
   logging.info('total steps: %s', normalizer_params[0] * action_repeat)
 
   _, inference = make_params_and_inference_fn(core_env.agent_observation_size,
-                                              core_env.agent_action_size,
+                                              core_env.agent_action_size, 
+                                              num_agents,
                                               normalize_observations)
-  params = normalizer_params, policy_params
+  params = normalizer_params, policies_params
 
-  if process_count > 1: 
+  if process_count > 1:
     # Make sure all processes stay up until the end of main.
     x = jnp.ones([jax.local_device_count()])
     x = jax.device_get(jax.pmap(lambda x: jax.lax.psum(x, 'i'), 'i')(x))
@@ -487,23 +533,35 @@ def train(
 
   return (inference, params, metrics)
 
-def make_params_and_inference_fn(agent_observation_size, agent_action_size,
+
+def make_params_and_inference_fn(agent_obs_size, agent_action_size, num_agents,
                                  normalize_observations):
   """Creates params and inference function for the PPO agent."""
   obs_normalizer_params, obs_normalizer_apply_fn = normalization.make_data_and_apply_fn(
       normalize_observations)
-  parametric_action_distribution = distribution.NormalTanhDistribution(
-      event_size=agent_action_size)
-  policy_model, _ = networks.make_models(
-      parametric_action_distribution.param_size,
-      agent_observation_size)
+  parametric_action_distributions = [distribution.NormalTanhDistribution(
+        event_size=agent_action_size) for i in range(num_agents)]
+  policy_models, _ = networks.make_multiagent_models(
+      [act_distr.param_size for act_distr in parametric_action_distributions],
+      num_agents,
+      agent_obs_size)
+
 
   def inference_fn(params, obs, key):
-    normalizer_params, policy_params = params
+    normalizer_params, policies_params = params
     obs = obs_normalizer_apply_fn(normalizer_params, obs)
-    action = parametric_action_distribution.sample(
-        policy_model.apply(policy_params, obs), key)
-    return action
+    obs_list = [jnp.take(obs, i, axis=0) for i in range (num_agents)] # no batch axis
+    keys = list(jax.random.split(key, num_agents))
 
-  params = (obs_normalizer_params, policy_model.init(jax.random.PRNGKey(0)))
+    agent_actions = jax.tree_multimap(
+      multiagent_forward_pass_eval, keys, policy_models, policies_params, parametric_action_distributions, obs_list
+      )
+    agent_actions = jnp.stack(agent_actions, axis=1)
+    return agent_actions
+
+  key = jax.random.PRNGKey(0)
+  policy_keys = jax.random.split(key, num_agents) # TODO: pass key out of inference fn??
+  policies_params = [policy_models[i].init(policy_keys[i]) for i in range(num_agents)]
+
+  params = (obs_normalizer_params, policies_params)
   return params, inference_fn
