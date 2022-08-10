@@ -26,7 +26,8 @@ from brax.envs import fetch
 from brax.envs import grasp
 from brax.envs import half_cheetah
 from brax.envs import hopper
-from brax.envs import humanoid
+#from brax.envs import humanoid
+from brax.envs import humanoid_new as humanoid
 from brax.envs import humanoid_standup
 from brax.envs import inverted_double_pendulum
 from brax.envs import inverted_pendulum
@@ -40,6 +41,7 @@ from brax.envs import wrappers
 from brax.envs.env import Env, State, Wrapper
 import gym
 
+print("Using environment init from brax fork")
 
 _envs = {
     'acrobot': acrobot.Acrobot,
