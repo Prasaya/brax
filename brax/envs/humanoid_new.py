@@ -1,22 +1,7 @@
-# Copyright 2022 The Brax Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-"""Trains a humanoid to run in the +x direction."""
-
 import brax
 from brax import jumpy as jp
 from brax.envs import env
+from jax.experimental.host_callback import call
 
 
 class Humanoid(env.Env):
@@ -204,7 +189,7 @@ class Humanoid(env.Env):
                ctrl_cost_weight=0.1,
                healthy_reward=5.0,
                terminate_when_unhealthy=True,
-               healthy_z_range=(1.0, 1.6),
+               healthy_z_range=(1.1, 2.0),
                reset_noise_scale=1e-2,
                exclude_current_positions_from_observation=True,
                legacy_spring=False,
@@ -221,6 +206,18 @@ class Humanoid(env.Env):
     self._exclude_current_positions_from_observation = (
         exclude_current_positions_from_observation
     )
+
+    # Change target_radius if changed in system config
+    self.target_radius = .1
+    self.target_distance = 10
+
+    self.target_idx = self.sys.body.index['Target']
+    self.torso_idx = self.sys.body.index['torso']
+    print("Target index : ", self.sys.body.index['Target'])
+    print("Torso index : ", self.torso_idx)
+    # print( "QP position of torso index : ", env.State.qp.pos[self.torso_idx] )
+    print( "System body consists  : ", self.sys.body )
+
 
   def reset(self, rng: jp.ndarray) -> env.State:
     """Resets the environment to an initial state."""
@@ -249,10 +246,33 @@ class Humanoid(env.Env):
     """Run one timestep of the environment's dynamics."""
     qp, info = self.sys.step(state.qp, action)
 
+    # print(qp.pos[self.target_idx])
+
+    # # small reward for moving towards target
+    
+    # torso_delta = qp.pos[self.torso_idx] - state.qp.pos[self.torso_idx]
+    # target_rel = qp.pos[self.target_idx] - qp.pos[self.torso_idx]
+    # target_dist = jp.norm(target_rel)
+    # target_dir = target_rel / (1e-6 + target_dist)
+    # moving_to_target = .1 * jp.dot(torso_delta, target_dir)
+    
+    # print("Moving target : ", moving_to_target)
+
+    # # big reward for reaching target
+    # target_hit = target_dist < self.target_radius
+    # target_hit = jp.where(target_hit, jp.float32(1), jp.float32(0))
+    # weighted_hit = target_hit
+
     com_before = self._center_of_mass(state.qp)
     com_after = self._center_of_mass(qp)
     velocity = (com_after - com_before) / self.sys.config.dt
     forward_reward = self._forward_reward_weight * velocity[0]
+    
+    # print("Forward reward : ", forward_reward)
+    # print( 'type : ', type(forward_reward) )
+
+    # # call(lambda x: print(f"Forward reward is {x} "), forward_reward)
+    # forward_reward = (weighted_hit + moving_to_target) * 5.0
 
     min_z, max_z = self._healthy_z_range
     is_healthy = jp.where(qp.pos[0, 2] < min_z, x=0.0, y=1.0)
@@ -332,6 +352,12 @@ class Humanoid(env.Env):
     # flatten bottom dimension
     # cfrc = [jp.reshape(x, x.shape[:-2] + (-1,)) for x in cfrc]
     # then add it to the jp.concatenate below
+
+    # target_pos = qp.pos[self.target_idx]
+    # torso_pos = qp.pos[self.torso_idx] 
+    # target_rel = qp.pos[self.target_idx] - qp.pos[self.torso_idx]
+    # target_dist = jp.norm(target_rel)
+    # print("QPOS is", qpos, "\ntype of qpos is : ", type(qpos))
 
     return jp.concatenate(qpos + qvel + cinert + cvel + qfrc_actuator)
 
@@ -1000,7 +1026,7 @@ _SYSTEM_CONFIG = """
   #   name: "Target"
   #   colliders {
   #     position {
-  #       x: +5
+  #       x: +10
   #       y: 0
   #       z: 0
   #     }
