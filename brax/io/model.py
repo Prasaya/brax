@@ -19,24 +19,23 @@ from flax import serialization
 
 from jax.experimental import jax2tf
 import tensorflow as tf
-from tensorflow.io import gfile
 
 # TODO: would it better to just load/save native jax?
 
 
 def load(path: str) -> Callable[..., Any]:
-  return tf.saved_model.load(path).f
+    return tf.saved_model.load(path).f
 
 
 def save(path: str, inference_fn: Callable[..., Any], *trace_args):
-  model = tf.Module()
-  model.f = tf.function(jax2tf.convert(inference_fn), autograph=False)
-  # for input tracing so that the model has the correct shapes
-  model.f(*trace_args)
-  tf.saved_model.save(model, path)
+    model = tf.Module()
+    model.f = tf.function(jax2tf.convert(inference_fn), autograph=False)
+    # for input tracing so that the model has the correct shapes
+    model.f(*trace_args)
+    tf.saved_model.save(model, path)
 
 
 def save_params(path: str, params: Any):
-  """Saves parameters in Flax format."""
-  with gfile.GFile(path, 'wb') as fout:
-    fout.write(serialization.to_bytes(params))
+    """Saves parameters in Flax format."""
+    with tf.io.gfile.GFile(path, 'wb') as fout:
+        fout.write(serialization.to_bytes(params))

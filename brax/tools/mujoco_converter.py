@@ -20,7 +20,7 @@ from absl import app
 from absl import flags
 from absl import logging
 from brax.tools import mujoco
-from tensorflow.io import gfile
+import tensorflow as tf
 
 from google.protobuf import text_format
 
@@ -45,32 +45,32 @@ flags.DEFINE_integer('substeps', 4,
 
 
 def main(argv: Sequence[str]) -> None:
-  if len(argv) > 1:
-    raise app.UsageError('Too many command-line arguments.')
+    if len(argv) > 1:
+        raise app.UsageError('Too many command-line arguments.')
 
-  # Read the Mujoco model.
-  filename = FLAGS.xml_model_path
-  with gfile.GFile(filename) as f:
-    logging.info('Loading mujoco model from %s', filename)
-    xml_string = f.read()
+    # Read the Mujoco model.
+    filename = FLAGS.xml_model_path
+    with tf.io.gfile.GFile(filename) as f:
+        logging.info('Loading mujoco model from %s', filename)
+        xml_string = f.read()
 
-  # Convert the model.
-  m = mujoco.MujocoConverter(
-      xml_string, add_collision_pairs=FLAGS.add_collision_pairs)
-  config = m.config
+    # Convert the model.
+    m = mujoco.MujocoConverter(
+        xml_string, add_collision_pairs=FLAGS.add_collision_pairs)
+    config = m.config
 
-  # Add the default options.
-  config.angular_damping = FLAGS.angular_damping
-  config.baumgarte_erp = FLAGS.baumgarte_erp
-  config.dt = FLAGS.dt
-  config.friction = FLAGS.friction
-  config.substeps = FLAGS.substeps
+    # Add the default options.
+    config.angular_damping = FLAGS.angular_damping
+    config.baumgarte_erp = FLAGS.baumgarte_erp
+    config.dt = FLAGS.dt
+    config.friction = FLAGS.friction
+    config.substeps = FLAGS.substeps
 
-  # Save the config.
-  if FLAGS.config_path:
-    text_proto = text_format.MessageToString(config)
-    gfile.GFile(FLAGS.config_path, mode='w').write(text_proto)
+    # Save the config.
+    if FLAGS.config_path:
+        text_proto = text_format.MessageToString(config)
+        tf.io.gfile.GFile(FLAGS.config_path, mode='w').write(text_proto)
 
 
 if __name__ == '__main__':
-  app.run(main)
+    app.run(main)
