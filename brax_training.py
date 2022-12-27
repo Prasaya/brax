@@ -26,7 +26,7 @@ os.mkdir(folder_name)
 
 """First let's pick an environment to train an agent:"""
 
-env_name = "humanoid"  
+env_name = "humanoidNevus"  
 env = envs.get_environment(env_name=env_name)
 state = env.reset(rng=jp.random_prngkey(seed=0))
 
@@ -125,5 +125,3 @@ for _ in range(1000):
 #with open("render_output.html", "rw") as f:
 html.save_html(os.path.join(folder_name, "render.html"), env.sys, [s.qp for s in rollout], True) 	
 #HTML(html.render(env.sys, [s.qp for s in rollout]))
-
-"""ವಿದಾಯ! 👋"""

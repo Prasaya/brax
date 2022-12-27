@@ -26,6 +26,7 @@ from brax.envs import grasp
 from brax.envs import half_cheetah
 from brax.envs import hopper
 #from brax.envs import humanoid
+from brax.envs import humanoid_2 as humanoidNevus
 from brax.envs import humanoid_new as humanoid
 from brax.envs import humanoid_standup
 from brax.envs import inverted_double_pendulum
@@ -60,6 +61,7 @@ _envs = {
     'swimmer': swimmer.Swimmer,
     'ur5e': ur5e.Ur5e,
     'walker2d': walker2d.Walker2d,
+    'humanoidNevus': humanoidNevus.Humanoid,
 }
 
 

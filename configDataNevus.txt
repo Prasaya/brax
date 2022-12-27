@@ -1,0 +1,5 @@
+Using new humanoid
+Using new humanoid
+Using environment init from brax fork
+Torso index :  0
+System body consists  :  <brax.physics.bodies.Body object at 0x7fbb60e55710>
