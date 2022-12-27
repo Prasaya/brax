@@ -16,11 +16,11 @@ Brax also includes a suite of learning algorithms that train agents in seconds
 to minutes:
 
 *   Baseline learning algorithms such as
-    [PPO](https://github.com/google/brax/blob/main/brax/training/ppo.py),
-    [SAC](https://github.com/google/brax/blob/main/brax/training/sac.py),
-    [ARS](https://github.com/google/brax/blob/main/brax/training/ars.py), and
-    [evolutionary strategies](https://github.com/google/brax/blob/main/brax/training/es.py).
-*   Learning algorithms that leverage the differentiability of the simulator, such as [analytic policy gradients](https://github.com/google/brax/blob/main/brax/training/apg.py).
+    [PPO](https://github.com/google/brax/blob/main/brax/training/agents/ppo),
+    [SAC](https://github.com/google/brax/blob/main/brax/training/agents/sac),
+    [ARS](https://github.com/google/brax/blob/main/brax/training/agents/ars), and
+    [evolutionary strategies](https://github.com/google/brax/blob/main/brax/training/agents/es).
+*   Learning algorithms that leverage the differentiability of the simulator, such as [analytic policy gradients](https://github.com/google/brax/blob/main/brax/training/agents/apg).
 
 ## Quickstart: Colab in the Cloud
 
@@ -41,6 +41,12 @@ python3 -m venv env
 source env/bin/activate
 pip install --upgrade pip
 pip install brax
+```
+
+You may also install from [Conda](https://docs.conda.io/en/latest/) or [Mamba](https://github.com/mamba-org/mamba):
+
+```
+conda install -c conda-forge brax  # s/conda/mamba for mamba
 ```
 
 Alternatively, to install Brax from source, clone this repo, `cd` to it, and then:
@@ -76,7 +82,7 @@ If you would like to reference Brax in a publication, please use:
   author = {C. Daniel Freeman and Erik Frey and Anton Raichuk and Sertan Girgin and Igor Mordatch and Olivier Bachem},
   title = {Brax - A Differentiable Physics Engine for Large Scale Rigid Body Simulation},
   url = {http://github.com/google/brax},
-  version = {0.0.13},
+  version = {0.1.0},
   year = {2021},
 }
 ```

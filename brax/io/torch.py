@@ -18,7 +18,7 @@ import functools
 from typing import Any, Dict, Union
 import warnings
 
-from jax._src import dlpack as jax_dlpack
+from jax import dlpack as jax_dlpack
 from jax.interpreters.xla import DeviceArray
 
 try:

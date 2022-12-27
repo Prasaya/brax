@@ -82,6 +82,62 @@ class BoxTest(absltest.TestCase):
     self.assertLess(qp.pos[0, 0], 1.5)  # ... and keeps it from travelling 2m
 
 
+class BoxBoxTest(absltest.TestCase):
+  _CONFIG = """
+    dt: 0.5 substeps: 200 friction: 0.8 elasticity: 0.5
+    gravity { z: -9.8 }
+    bodies {
+      name: "box1" mass: 1
+      colliders { box { halfsize { x: 0.2 y: 0.2 z: 0.2 }}}
+      inertia { x: 1 y: 1 z: 1 }
+    }
+    bodies {
+      name: "box2" mass: 1
+      colliders { box { halfsize { x: 0.1 y: 0.1 z: 0.1 }}}
+      inertia { x: 1 y: 1 z: 1 }
+    }
+    bodies { name: "Ground" frozen: { all: true } colliders { plane {}}}
+    defaults {
+      qps { name: "box1" pos { x: 0 y: 1 z: .2 } rot {z: 0} }
+      qps { name: "box2" pos { x: 0.1 y: 1 z: .6 } rot {z: 45} }
+    }
+  """
+
+  def test_box_box(self):
+    """A box falls onto another box."""
+    sys = brax.System(text_format.Parse(BoxBoxTest._CONFIG, brax.Config()))
+    qp = sys.default_qp()
+    qp, _ = sys.step(qp, jp.array([]))
+    # Boxes are stacked.
+    self.assertAlmostEqual(qp.pos[0, 2], 0.2, 2)
+    self.assertAlmostEqual(qp.pos[1, 2], 0.5, 2)
+    # x-y position of the top box is unchanged.
+    self.assertAlmostEqual(qp.pos[1, 0], 0.1, 2)
+    self.assertAlmostEqual(qp.pos[1, 1], 1.0, 2)
+
+
+class CollisionDebuggerTest(absltest.TestCase):
+  _CONFIG = """
+    dt: 0.01 substeps: 4 friction: 1
+    gravity { z: -9.8 }
+    bodies {
+      name: "box" mass: 1
+      colliders { box { halfsize { x: 0.5 y: 0.5 z: 0.5 }}}
+      inertia { x: 1 y: 1 z: 1 }
+    }
+    bodies { name: "Ground" frozen: { all: true } colliders { plane {}}}
+    defaults { qps { name: "box" pos { z: 0.49 }}}
+  """
+
+  def test_system_runs_with_debug_on(self):
+    """Tests that the simulation runs with debug_contacts."""
+    sys = brax.System(
+        text_format.Parse(CollisionDebuggerTest._CONFIG, brax.Config()))
+    qp = sys.default_qp(0)
+    qp, info = sys.step(qp, jp.array([]))
+    self.assertGreater(info.contact_pos.shape[0], 0)
+
+
 class BoxCapsuleTest(absltest.TestCase):
 
   _CONFIG = """
@@ -162,8 +218,8 @@ class BoxCapsuleTest(absltest.TestCase):
     # box falls on capsule
     self.assertAlmostEqual(qp.pos[0, 2], 2.5, 2)
     self.assertAlmostEqual(qp.pos[1, 2], 1.0, 2)
-    # box falls on capsule with non-unit mass ratio
-    self.assertAlmostEqual(qp.pos[2, 2], 2.5, 2)
+    # box falls on capsule with non-unit mass ratio, bounces a bit
+    self.assertGreaterEqual(qp.pos[2, 2], 2.5, 2)
     self.assertAlmostEqual(qp.pos[3, 2], 1.0, 2)
     # capsule falls on frozen box
     self.assertAlmostEqual(qp.pos[5, 2], 1.5, 2)
@@ -365,6 +421,58 @@ class MeshTest(absltest.TestCase):
       qp, _ = step_fn(qp, jp.array([]))
     # Cylinder should be on the capsule, rather than on the ground.
     self.assertAlmostEqual(qp.pos[0, 2], 0.394, 2)
+
+
+class CapsuleClippedPlaneTest(absltest.TestCase):
+  """Tests the capsule-clippedPlane collision function."""
+  _CONFIG = """
+    dt: 2 substeps: 800 friction: 0.6
+    gravity { z: -9.8 }
+    bodies {
+      name: "Sphere1" mass: 1
+      colliders { sphere { radius: 0.5 } }
+      inertia { x: 1 y: 1 z: 1 }
+    }
+    bodies {
+      name: "Sphere2" mass: 1
+      colliders { sphere { radius: 0.5 } }
+      inertia { x: 1 y: 1 z: 1 }
+    }
+    bodies {
+      name: "Sphere3" mass: 1
+      colliders { sphere { radius: 0.5 } }
+      inertia { x: 1 y: 1 z: 1 }
+    }
+    bodies {
+      name: "ClippedPlane" mass: 1
+      colliders {
+        clipped_plane { halfsize_x: 3 halfsize_y: 1 }
+        position { z: 2 }
+      }
+      frozen { all: true }
+    }
+    bodies { name: "Ground" frozen: { all: true } colliders { plane {}}}
+    defaults {
+      qps { name: "Sphere1" pos { z: 3 } }
+      qps { name: "Sphere2" pos { z: 3 x: -4 } }
+      qps { name: "Sphere3" pos { z: 3 y: -2 } }
+      qps { name: "ClippedPlane" pos { x: 0 } }
+    }
+  """
+
+  def test_collision(self):
+    """Tests collisions between spheres and a clipped plane."""
+    config = text_format.Parse(CapsuleClippedPlaneTest._CONFIG, brax.Config())
+    sys = brax.System(config)
+
+    qp = sys.default_qp()
+    step_fn = jax.jit(sys.step)
+    qp, _ = step_fn(qp, jp.array([]))
+    # sphere1 is on the clipped plane and sphere2/sphere3 are on the ground
+    # plane
+    self.assertAlmostEqual(qp.pos[0, 2], 2.5, 4)
+    self.assertAlmostEqual(qp.pos[1, 2], 0.5, 4)
+    self.assertAlmostEqual(qp.pos[2, 2], 0.5, 4)
 
 
 class JointTest(parameterized.TestCase):

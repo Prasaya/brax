@@ -114,7 +114,7 @@ def scan(f: Callable[[Carry, X], Tuple[Carry, Y]],
       xs_slice = [x[i] for x in xs_flat]
       carry, y = f(carry, jax.tree_util.tree_unflatten(xs_tree, xs_slice))
       ys.append(y)
-    stacked_y = jax.tree_util.tree_map(lambda *y: onp.vstack(y),
+    stacked_y = jax.tree_util.tree_map(lambda *y: onp.stack(y),
                                        *maybe_reversed(ys))
     return carry, stacked_y
 
@@ -131,15 +131,15 @@ def while_loop(cond_fun: Callable[[X], Any], body_fun: Callable[[X], X],
     return val
 
 
-def fori_loop(lower: int, upper: int, body_fun: Callable[[X], X],
+def fori_loop(lower: int, upper: int, body_fun: Callable[[int, X], X],
               init_val: X) -> X:
   """Call body_fun over range from lower to upper, starting with init_val."""
   if _in_jit():
     return jax.lax.fori_loop(lower, upper, body_fun, init_val)
   else:
     val = init_val
-    for _ in range(lower, upper):
-      val = body_fun(val)
+    for i in range(lower, upper):
+      val = body_fun(i, val)
     return val
 
 
@@ -244,6 +244,11 @@ def inv(a: ndarray) -> ndarray:
   return _which_np(a).linalg.inv(a)
 
 
+def roll(x: ndarray, shift, axis=None) -> ndarray:
+  """Rolls array elements along a given axis."""
+  return _which_np(x).roll(x, shift, axis=axis)
+
+
 def square(x: ndarray) -> ndarray:
   """Return the element-wise square of the input."""
   return _which_np(x).square(x)
@@ -254,9 +259,10 @@ def tile(x: ndarray, reps: Union[Tuple[int, ...], int]) -> ndarray:
   return _which_np(x).tile(x, reps)
 
 
-def repeat(a: ndarray, repeats: Union[int, ndarray]) -> ndarray:
+def repeat(a: ndarray, repeats: Union[int, ndarray], *args,
+           **kwargs) -> ndarray:
   """Repeat elements of an array."""
-  return _which_np(a, repeats).repeat(a, repeats=repeats)
+  return _which_np(a, repeats).repeat(a, repeats=repeats, *args, **kwargs)
 
 
 def floor(x: ndarray) -> ndarray:
@@ -364,14 +370,24 @@ def maximum(x1: ndarray, x2: ndarray) -> ndarray:
   return _which_np(x1, x2).maximum(x1, x2)
 
 
-def amin(x: ndarray) -> ndarray:
+def amin(x: ndarray, *args, **kwargs) -> ndarray:
   """Returns the minimum along a given axis."""
-  return _which_np(x).amin(x)
+  return _which_np(x).amin(x, *args, **kwargs)
 
 
-def amax(x: ndarray) -> ndarray:
+def amax(x: ndarray, *args, **kwargs) -> ndarray:
   """Returns the maximum along a given axis."""
-  return _which_np(x).amax(x)
+  return _which_np(x).amax(x, *args, **kwargs)
+
+
+def argmin(x: ndarray, *args, **kwargs) -> ndarray:
+  """Returns the argmin along a given axis."""
+  return _which_np(x).argmin(x, *args, **kwargs)
+
+
+def argmax(x: ndarray, *args, **kwargs) -> ndarray:
+  """Returns the argmax along a given axis."""
+  return _which_np(x).argmax(x, *args, **kwargs)
 
 
 def exp(x: ndarray) -> ndarray:
@@ -459,12 +475,13 @@ def segment_sum(data: ndarray,
 
 
 def top_k(operand: ndarray, k: int) -> ndarray:
-  """Returns top k values and their indices along the last axis of operand."""
+  """Returns the ordered top k values and their indices along the last axis of operand."""
   if _which_np(operand) is jnp:
     return jax.lax.top_k(operand, k)
   else:
-    ind = onp.argpartition(operand, -k)[-k:]
-    return operand[ind], ind
+    top_ind = onp.argpartition(operand, -k)[-k:]
+    sorted_ind = top_ind[onp.argsort(-operand[top_ind])]
+    return operand[sorted_ind], sorted_ind
 
 
 def stack(x: List[ndarray], axis=0) -> ndarray:
