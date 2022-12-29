@@ -196,7 +196,6 @@ class Reacher(env.Env):
     # qpos:
     # x,y coord of target
     qpos = [qp.pos[self._target_idx, :2]]
-
     # dist to target and speed of tip
     arm_qps = jp.take(qp, jp.array(self._arm_idx))
     tip_pos, tip_vel = arm_qps.to_world(jp.array([0.11, 0., 0.]))

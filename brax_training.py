@@ -34,6 +34,8 @@ state = env.reset(rng=jp.random_prngkey(seed=0))
 html.save_html(os.path.join(folder_name, "initial_render.html"),
                env.sys, [state.qp], True)
 
+# sys.exit(0)
+
 
 """# Training
 
@@ -46,7 +48,7 @@ Trainers take as input an environment function and some hyperparameters, and ret
 
 # Hyperparameters for humanoid.
 train_fn = functools.partial(ppo.train,
-                             num_timesteps=50_000_000,
+                             num_timesteps=10_000_000,
                              episode_length=1000,
                              action_repeat=1,
                              num_envs=2048,
