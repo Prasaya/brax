@@ -25,9 +25,9 @@ from brax.envs import fetch
 from brax.envs import grasp
 from brax.envs import half_cheetah
 from brax.envs import hopper
-#from brax.envs import humanoid
+from brax.envs import humanoid
 from brax.envs import humanoid_2 as humanoidNevus
-from brax.envs import humanoid_new as humanoid
+# from brax.envs import humanoid_new as humanoid
 from brax.envs import humanoid_standup
 from brax.envs import inverted_double_pendulum
 from brax.envs import inverted_pendulum

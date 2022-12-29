@@ -20,7 +20,7 @@ from absl import app
 from absl import flags
 from absl import logging
 from brax.io import file
-from brax.tools import mujoco
+from brax.tools import mujoco_a as mujoco
 
 from google.protobuf import text_format
 

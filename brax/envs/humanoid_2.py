@@ -3,6 +3,7 @@ from brax import jumpy as jp
 from brax.envs import env
 from jax.experimental.host_callback import call
 from google.protobuf import text_format
+import jax
 
 class Humanoid(env.Env):
 
@@ -215,8 +216,9 @@ class Humanoid(env.Env):
     # self.target_idx = self.sys.body.index['Target']
     self.torso_idx = self.sys.body.index['torso']
     # print("Target index : ", self.sys.body.index['Target'])
-    print("Torso index : ", self.torso_idx)
+    # print("Torso index : ", self.torso_idx)
     # print( "QP position of torso index : ", env.State.qp.pos[self.torso_idx] )
+    # jax.experimental.host_callback.id_print(f"QP position of torso index : {env.State.qp.pos[self.torso_idx]}")
     print( "System body consists  : ", self.sys.body )
 
 
@@ -266,7 +268,10 @@ class Humanoid(env.Env):
 
     com_before = self._center_of_mass(state.qp)
     com_after = self._center_of_mass(qp)
+    # print('COM: ', [i for i in com_after])
     velocity = (com_after - com_before) / self.sys.config.dt
+    # jax.experimental.host_callback.id_print(com_after)
+    # print('velocity: ', [i for i in velocity])
     forward_reward = self._forward_reward_weight * velocity[0]
     
     # print("Forward reward : ", forward_reward)
@@ -1001,6 +1006,24 @@ _SYSTEM_CONFIG = """
     first: "floor"
     second: "right_shin"
   }
+
+  bodies {
+    name: "Target"
+    colliders {
+      position {
+        x: 0
+        y: +10
+        z: 1
+      }
+      sphere {
+        radius: 0.1
+      }
+    }
+    frozen {
+      all: true
+    }
+  }
+
   defaults {
     angles {
       name: "left_knee"
@@ -1023,28 +1046,6 @@ _SYSTEM_CONFIG = """
   """
 
 
-  # bodies {
-  #   name: "Target"
-  #   colliders {
-  #     position {
-  #       x: +10
-  #       y: 0
-  #       z: 0
-  #     }
-  #     sphere {
-  #       radius: 0.1
-  #     }
-  #   }
-  #   inertia {
-  #     x: 1.0
-  #     y: 1.0
-  #     z: 1.0
-  #   }
-  #   mass: 0.0
-  #   frozen {
-  #     all: true
-  #   }
-  # }
 
 _SYSTEM_CONFIG_SPRING = """
   
