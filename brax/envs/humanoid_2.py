@@ -55,6 +55,7 @@ class Humanoid(env.Env):
     reward, done, zero = jp.zeros(3)
     metrics = {
         'forward_reward': zero,
+        'target_reward': zero,
         'reward_linvel': zero,
         'reward_quadctrl': zero,
         'reward_alive': zero,
@@ -64,7 +65,7 @@ class Humanoid(env.Env):
         'x_velocity': zero,
         'y_velocity': zero,
     }
-    pos = jp.index_update(qp.pos, self.target_idx, jax.numpy.array([10., 0, 1.5]))
+    pos = jp.index_update(qp.pos, self.target_idx, jax.numpy.array([10., 10., 1.5]))
     qp = qp.replace(pos=pos)
     return env.State(qp, obs, reward, done, metrics)
 
@@ -76,15 +77,16 @@ class Humanoid(env.Env):
     com_before = self._center_of_mass(state.qp)
     com_after = self._center_of_mass(qp)
     velocity = (com_after - com_before) / self.sys.config.dt
-    # forward_reward = self._forward_reward_weight * velocity[0]
-    forward_reward = 0.
+    forward_reward = self._forward_reward_weight * velocity[0]
+    # forward_reward = 0.
 
     # small reward for torso moving towards target
     torso_delta = com_after - com_before
     target_rel = qp.pos[self.target_idx] - com_after
     target_dist = jp.norm(target_rel)
     target_dir = target_rel / (1e-6 + target_dist)
-    target_reward = self._forward_reward_weight * jp.dot(velocity, target_dir) * 100
+    # target_reward = self._forward_reward_weight * jp.dot(velocity, target_dir)
+    target_reward = 0.
 
     # jax.experimental.host_callback.id_print(qp.pos[self.target_idx])
 
@@ -103,6 +105,7 @@ class Humanoid(env.Env):
     done = 1.0 - is_healthy if self._terminate_when_unhealthy else 0.0
     state.metrics.update(
         forward_reward=forward_reward,
+        target_reward=target_reward,
         reward_linvel=forward_reward,
         reward_quadctrl=-ctrl_cost,
         reward_alive=healthy_reward,

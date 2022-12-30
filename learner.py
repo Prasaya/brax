@@ -115,7 +115,7 @@ flags.DEFINE_integer('truncation_length', None,
 
 
 def main(unused_argv):
-
+  os.mkdir(FLAGS.logdir)
   with metrics.Writer(FLAGS.logdir) as writer:
     writer.write_hparams({
         'num_evals': FLAGS.num_evals,

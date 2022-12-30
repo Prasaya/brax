@@ -38,6 +38,7 @@ from brax.envs import swimmer
 from brax.envs import ur5e
 from brax.envs import walker2d
 from brax.envs import wrappers
+from brax.envs import mesh
 from brax.envs.env import Env, State, Wrapper
 import gym
 
@@ -62,6 +63,7 @@ _envs = {
     'ur5e': ur5e.Ur5e,
     'walker2d': walker2d.Walker2d,
     'humanoidNevus': humanoidNevus.Humanoid,
+    'mesh': mesh.Mesh
 }
 
 

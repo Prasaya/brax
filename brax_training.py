@@ -48,7 +48,7 @@ Trainers take as input an environment function and some hyperparameters, and ret
 
 # Hyperparameters for humanoid.
 train_fn = functools.partial(ppo.train,
-                             num_timesteps=10_000_000,
+                             num_timesteps=50_000_000,
                              episode_length=1000,
                              action_repeat=1,
                              num_envs=2048,

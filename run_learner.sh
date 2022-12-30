@@ -1,0 +1,17 @@
+python learner.py \
+    --env humanoidNevus \
+    --total_env_steps 50000000 \
+    --num_evals 40 \
+    --reward_scaling 5. \
+    --episode_length 1000 \
+    --normalize_observations True \
+    --action_repeat 1 \
+    --unroll_length 20 \
+    --num_minibatches 4 \
+    --num_updates_per_batch 8 \
+    --discounting 0.99 \
+    --learning_rate 3e-4 \
+    --entropy_cost 1e-3 \
+    --num_envs 2048 \
+    --batch_size 1024 \
+    --logdir "/home/nevus/rl/double_brax/brax/braxlogs/$(date)"
