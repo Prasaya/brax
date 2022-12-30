@@ -800,6 +800,40 @@ _SYSTEM_CONFIG = """
     first: "floor"
     second: "right_shin"
   }
+  collide_include {
+    first: "Wall1"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Wall1"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Wall2"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Wall2"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Wall11"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Wall11"
+    second: "left_shin"
+  }
+   collide_include {
+    first: "Wall12"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Wall12"
+    second: "left_shin"
+  }
+
+
 
   bodies {
     name: "Target"
@@ -815,6 +849,178 @@ _SYSTEM_CONFIG = """
       all: true
     }
   }
+  bodies {
+    name: "Wall1"
+    colliders {
+      position {
+        x: 5.0
+        y: 2.5
+        z: 0
+      }
+      box {
+        halfsize { x: 5.0 y: 0.5 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
+  bodies {
+    name: "Wall2"
+    colliders {
+      position {
+        x: 10.0
+        y: 2.5
+        z: 0
+      }
+      box {
+        halfsize { x: 1.0 y: 5.0 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
+
+  bodies {
+    name: "Wall11"
+    colliders {
+      position {
+        x: 15.0
+        y: -7.5
+        z: 0
+      }
+      box {
+        halfsize { x: 5.0 y: 0.5 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
+  bodies {
+    name: "Wall12"
+    colliders {
+      position {
+        x: 20.0
+        y: -7.5
+        z: 0
+      }
+      box {
+        halfsize { x: 1.0 y: 6.0 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
+
+
+
+  bodies {
+    name: "Wall3"
+    colliders {
+      position {
+        x: 10.0
+        y: 6.5
+        z: 0
+      }
+      box {
+        halfsize { x: 0.5 y: 4 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
+  bodies {
+    name: "Wall4"
+    colliders {
+      position {
+        x: 15.0
+        y: 5.5
+        z: 0
+      }
+      box {
+        halfsize { x: 0.5 y: 4 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
+  bodies {
+    name: "Wall5"
+    colliders {
+      position {
+        x: 17.5
+        y: 13.0
+        z: 0
+      }
+      box {
+        halfsize { x: 7.5 y: 0.5 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
+  bodies {
+    name: "Wall6"
+    colliders {
+      position {
+        x: 20.0
+        y: 8.0
+        z: 0
+      }
+      box {
+        halfsize { x: 5.0 y: 0.5 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
 
   defaults {
     angles {
