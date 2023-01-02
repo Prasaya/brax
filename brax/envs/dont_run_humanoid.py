@@ -813,30 +813,6 @@ _SYSTEM_CONFIG = """
   
   """
 
-
-  # bodies {
-  #   name: "Target"
-  #   colliders {
-  #     position {
-  #       x: +10
-  #       y: 0
-  #       z: 0
-  #     }
-  #     sphere {
-  #       radius: 0.1
-  #     }
-  #   }
-  #   inertia {
-  #     x: 1.0
-  #     y: 1.0
-  #     z: 1.0
-  #   }
-  #   mass: 0.0
-  #   frozen {
-  #     all: true
-  #   }
-  # }
-
 _SYSTEM_CONFIG_SPRING = """
   bodies {
     name: "torso"
