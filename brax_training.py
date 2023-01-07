@@ -49,7 +49,7 @@ Trainers take as input an environment function and some hyperparameters, and ret
 
 # Hyperparameters for humanoid.
 train_fn = functools.partial(ppo.train,
-                             num_timesteps=10_000_000,
+                             num_timesteps=1_000_000,
                              episode_length=4000,
                              action_repeat=1,
                              num_envs=2048,
@@ -119,4 +119,5 @@ def generate_render(model_path: str, env_name: str, render_output: str):
 generate_render('/tmp/params', env_name, os.path.join(folder_name, "final_render.html"))
 
 for model_file in os.listdir('/home/nevus/rl/aparams'):
-    generate_render(model_file, env_name, os.path.join(folder_name, f"render-{model_file}.html"))
+    filename = os.path.join('/home/nevus/rl/aparams', model_file)
+    generate_render(filename, env_name, os.path.join(folder_name, f"render-{model_file}.html"))
