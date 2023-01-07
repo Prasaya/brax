@@ -11,6 +11,7 @@ __pycache__
 *.egg-info
 results_mesh
 braxlogs
+results_multi_trial
 
 ####### UNITY STUFF
 

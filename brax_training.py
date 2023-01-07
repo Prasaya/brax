@@ -4,6 +4,7 @@ import os
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import copy
 import sys
 
 import brax
@@ -22,7 +23,7 @@ import logging
 
 
 dir_var = str(datetime.now())
-folder_name = "results/result" + dir_var
+folder_name = "results_multi_trial/result" + dir_var
 os.mkdir(folder_name)
 
 """First let's pick an environment to train an agent:"""
@@ -48,7 +49,7 @@ Trainers take as input an environment function and some hyperparameters, and ret
 
 # Hyperparameters for humanoid.
 train_fn = functools.partial(ppo.train,
-                             num_timesteps=100_000_000,
+                             num_timesteps=10_000_000,
                              episode_length=4000,
                              action_repeat=1,
                              num_envs=2048,
@@ -71,7 +72,8 @@ xdata, ydata = [], []
 times = [datetime.now()]
 
 
-def progress(num_steps, metrics):
+def progress(num_steps, metrics, params, make_policy, env):
+    # print(metrics)
     times.append(datetime.now())
     xdata.append(num_steps)
     ydata.append(metrics['eval/episode_reward'])
@@ -85,47 +87,36 @@ def progress(num_steps, metrics):
     plt.savefig(os.path.join(folder_name, "graph.png"))
     print("Environment steps : ", num_steps,
           "      Reward : ", metrics['eval/episode_reward'])
+    model.save_params(f'/home/nevus/rl/aparams/{num_steps}', params)
 
-
+# Train and save data
 make_inference_fn, params, _ = train_fn(environment=env, progress_fn=progress)
-
 print(f'time to jit: {times[1] - times[0]}')
 print(f'time to train: {times[-1] - times[1]}')
-
-"""The trainers return an inference function, parameters, and the final set of metrics gathered during evaluation.
-
-# Saving and Loading Policies
-
-Brax can save and load trained policies:
-"""
-
 model.save_params('/tmp/params', params)
-params = model.load_params('/tmp/params')
-inference_fn = make_inference_fn(params)
 
-"""# Visualizing a Policy's Behavior
+def generate_render(model_path: str, env_name: str, render_output: str):
+    params = model.load_params(model_path)
+    inference_fn = make_inference_fn(params)
+    # create an env with auto-reset
+    env = envs.create(env_name=env_name)
+    jit_env_reset = jax.jit(env.reset)
+    jit_env_step = jax.jit(env.step)
+    jit_inference_fn = jax.jit(inference_fn)
 
-We can use the policy to generate a rollout for visualization:
-"""
+    rollout = []
+    rng = jax.random.PRNGKey(seed=0)
+    state = jit_env_reset(rng=rng)
+    for _ in range(1000):
+        rollout.append(state)
+        act_rng, rng = jax.random.split(rng)
+        act, _ = jit_inference_fn(state.obs, act_rng)
+        state = jit_env_step(state, act)
 
-# @title Visualizing a trajectory of the learned inference function
+    html.save_html(render_output,
+                env.sys, [s.qp for s in rollout], True)
 
-# create an env with auto-reset
-env = envs.create(env_name=env_name)
-jit_env_reset = jax.jit(env.reset)
-jit_env_step = jax.jit(env.step)
-jit_inference_fn = jax.jit(inference_fn)
+generate_render('/tmp/params', env_name, os.path.join(folder_name, "final_render.html"))
 
-rollout = []
-rng = jax.random.PRNGKey(seed=0)
-state = jit_env_reset(rng=rng)
-for _ in range(1000):
-    rollout.append(state)
-    act_rng, rng = jax.random.split(rng)
-    act, _ = jit_inference_fn(state.obs, act_rng)
-    state = jit_env_step(state, act)
-
-# with open("render_output.html", "rw") as f:
-html.save_html(os.path.join(folder_name, "render.html"),
-               env.sys, [s.qp for s in rollout], True)
-# HTML(html.render(env.sys, [s.qp for s in rollout]))
+for model_file in os.listdir('/home/nevus/rl/aparams'):
+    generate_render(model_file, env_name, os.path.join(folder_name, f"render-{model_file}.html"))

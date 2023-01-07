@@ -34,6 +34,8 @@ from brax.training.agents.ppo import losses as ppo_losses
 from brax.training.agents.ppo import networks as ppo_networks
 from brax.training.types import Params
 from brax.training.types import PRNGKey
+from brax.io import model
+
 import flax
 import jax
 import jax.numpy as jnp
@@ -267,6 +269,7 @@ def train(environment: envs.Env,
   init_params = ppo_losses.PPONetworkParams(
       policy=ppo_network.policy_network.init(key_policy),
       value=ppo_network.value_network.init(key_value))
+#   init_params = model.load_params('/tmp/params')
   training_state = TrainingState(
       optimizer_state=optimizer.init(init_params),
       params=init_params,
@@ -303,7 +306,9 @@ def train(environment: envs.Env,
             (training_state.normalizer_params, training_state.params.policy)),
         training_metrics={})
     logging.info(metrics)
-    progress_fn(0, metrics)
+    
+    params1 = _unpmap( (training_state.normalizer_params, training_state.params.policy) )
+    progress_fn(0, metrics, params1, make_policy, env)
 
   training_walltime = 0
   current_step = 0
@@ -325,7 +330,9 @@ def train(environment: envs.Env,
               (training_state.normalizer_params, training_state.params.policy)),
           training_metrics)
       logging.info(metrics)
-      progress_fn(current_step, metrics)
+      
+      params1 = _unpmap( (training_state.normalizer_params, training_state.params.policy) )
+      progress_fn(current_step, metrics, params1, make_policy, env)
 
   total_steps = current_step
   assert total_steps >= num_timesteps
