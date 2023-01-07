@@ -77,7 +77,9 @@ class Humanoid(env.Env):
     com_before = self._center_of_mass(state.qp)
     com_after = self._center_of_mass(qp)
     velocity = (com_after - com_before) / self.sys.config.dt
-    forward_reward = self._forward_reward_weight * velocity[0]
+    in_between = jp.where(com_after[0] < 21., 1.0, -1.0)
+    in_between = jp.where(com_after[0] > 11., in_between, -1.0)
+    forward_reward = self._forward_reward_weight * velocity[0] + self._forward_reward_weight * velocity[1] * in_between * 0.35
     # forward_reward = 0.
 
     # small reward for torso moving towards target
@@ -832,29 +834,31 @@ _SYSTEM_CONFIG = """
     first: "Wall12"
     second: "left_shin"
   }
-
-
-
-  bodies {
-    name: "Target"
-    colliders {
-      position {
-        x: +10
-      }
-      sphere {
-        radius: 0.1
-      }
-    }
-    frozen {
-      all: true
-    }
+  collide_include {
+    first: "Wall21"
+    second: "right_shin"
   }
+  collide_include {
+    first: "Wall21"
+    second: "left_shin"
+  }
+   collide_include {
+    first: "Wall22"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Wall22"
+    second: "left_shin"
+  }
+
+
+
   bodies {
     name: "Wall1"
     colliders {
       position {
         x: 5.0
-        y: 2.5
+        y: 3.0
         z: 0
       }
       box {
@@ -875,7 +879,7 @@ _SYSTEM_CONFIG = """
     colliders {
       position {
         x: 10.0
-        y: 2.5
+        y: 3.0
         z: 0
       }
       box {
@@ -922,31 +926,7 @@ _SYSTEM_CONFIG = """
         z: 0
       }
       box {
-        halfsize { x: 1.0 y: 6.0 z: 0.5 }
-      }
-    }
-    inertia {
-      x: 1.0
-      y: 1.0
-      z: 1.0
-    }
-    mass: 1.0
-    frozen { all: true }
-  }
-
-
-
-
-  bodies {
-    name: "Wall3"
-    colliders {
-      position {
-        x: 10.0
-        y: 6.5
-        z: 0
-      }
-      box {
-        halfsize { x: 0.5 y: 4 z: 0.5 }
+        halfsize { x: 1.0 y: 5.0 z: 0.5 }
       }
     }
     inertia {
@@ -959,53 +939,11 @@ _SYSTEM_CONFIG = """
   }
 
   bodies {
-    name: "Wall4"
+    name: "Wall31"
     colliders {
       position {
-        x: 15.0
-        y: 5.5
-        z: 0
-      }
-      box {
-        halfsize { x: 0.5 y: 4 z: 0.5 }
-      }
-    }
-    inertia {
-      x: 1.0
-      y: 1.0
-      z: 1.0
-    }
-    mass: 1.0
-    frozen { all: true }
-  }
-
-  bodies {
-    name: "Wall5"
-    colliders {
-      position {
-        x: 17.5
-        y: 13.0
-        z: 0
-      }
-      box {
-        halfsize { x: 7.5 y: 0.5 z: 0.5 }
-      }
-    }
-    inertia {
-      x: 1.0
-      y: 1.0
-      z: 1.0
-    }
-    mass: 1.0
-    frozen { all: true }
-  }
-
-  bodies {
-    name: "Wall6"
-    colliders {
-      position {
-        x: 20.0
-        y: 8.0
+        x: 25.0
+        y: 3.0
         z: 0
       }
       box {
@@ -1019,6 +957,42 @@ _SYSTEM_CONFIG = """
     }
     mass: 1.0
     frozen { all: true }
+  }
+
+  bodies {
+    name: "Wall32"
+    colliders {
+      position {
+        x: 30.0
+        y: 3.0
+        z: 0
+      }
+      box {
+        halfsize { x: 1.0 y: 5.0 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
+  bodies {
+    name: "Target"
+    colliders {
+      position {
+        x: +10
+      }
+      sphere {
+        radius: 0.001
+      }
+    }
+    frozen {
+      all: true
+    }
   }
 
 
@@ -1056,3 +1030,93 @@ _SYSTEM_CONFIG = """
 _SYSTEM_CONFIG_SPRING = """
   
 """
+
+  # Maze type walls
+
+  # bodies {
+  #   name: "Wall3"
+  #   colliders {
+  #     position {
+  #       x: 10.0
+  #       y: 6.5
+  #       z: 0
+  #     }
+  #     box {
+  #       halfsize { x: 0.5 y: 4 z: 0.5 }
+  #     }
+  #   }
+  #   inertia {
+  #     x: 1.0
+  #     y: 1.0
+  #     z: 1.0
+  #   }
+  #   mass: 1.0
+  #   frozen { all: true }
+  # }
+
+  # bodies {
+  #   name: "Wall4"
+  #   colliders {
+  #     position {
+  #       x: 15.0
+  #       y: 5.5
+  #       z: 0
+  #     }
+  #     box {
+  #       halfsize { x: 0.5 y: 4 z: 0.5 }
+  #     }
+  #   }
+  #   inertia {
+  #     x: 1.0
+  #     y: 1.0
+  #     z: 1.0
+  #   }
+  #   mass: 1.0
+  #   frozen { all: true }
+  # }
+
+  # bodies {
+  #   name: "Wall5"
+  #   colliders {
+  #     position {
+  #       x: 17.5
+  #       y: 13.0
+  #       z: 0
+  #     }
+  #     box {
+  #       halfsize { x: 7.5 y: 0.5 z: 0.5 }
+  #     }
+  #   }
+  #   inertia {
+  #     x: 1.0
+  #     y: 1.0
+  #     z: 1.0
+  #   }
+  #   mass: 1.0
+  #   frozen { all: true }
+  # }
+
+  # bodies {
+  #   name: "Wall6"
+  #   colliders {
+  #     position {
+  #       x: 20.0
+  #       y: 8.0
+  #       z: 0
+  #     }
+  #     box {
+  #       halfsize { x: 5.0 y: 0.5 z: 0.5 }
+  #     }
+  #   }
+  #   inertia {
+  #     x: 1.0
+  #     y: 1.0
+  #     z: 1.0
+  #   }
+  #   mass: 1.0
+  #   frozen { all: true }
+  # }
+
+  # Target
+
+  

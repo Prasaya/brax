@@ -28,7 +28,7 @@ os.mkdir(folder_name)
 """First let's pick an environment to train an agent:"""
 
 env_name = "mesh"
-env = envs.get_environment(env_name=env_name, resource_paths=["/home/nevus/rl/double_brax/brax/brax/tests/testdata"])
+env = envs.get_environment(env_name=env_name, resource_paths=["./brax/tests/testdata"])
 state = env.reset(rng=jp.random_prngkey(seed=0))
 
 html.save_html(os.path.join(folder_name, "initial_render.html"),
