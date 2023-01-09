@@ -11,7 +11,7 @@ class Humanoid(env.Env):
 
   # CHANGED: health_z_range from (0.8, 2.1) to (1.2, 2.1)
   def __init__(self,
-               forward_reward_weight=0.75,
+               forward_reward_weight=1.25,
                ctrl_cost_weight=0.1,
                healthy_reward=5.0,
                terminate_when_unhealthy=True,
@@ -85,7 +85,11 @@ class Humanoid(env.Env):
     com_before = self._center_of_mass(state.qp)
     com_after = self._center_of_mass(qp)
     velocity = (com_after - com_before) / self.sys.config.dt
-    forward_reward = self._forward_reward_weight * velocity[0]
+    in_between = jp.where(com_after[0] >21., 0.0, -1.0)
+    in_between = jp.where(com_after[0] < 14., 1.0, in_between)
+    in_between = jp.where(com_after[0] > 7., in_between, -1.0)
+    forward_reward = self._forward_reward_weight * velocity[0] + self._forward_reward_weight * velocity[1] * in_between * 0.35
+    # forward_reward = self._forward_reward_weight * velocity[0]
     # forward_reward = 0.
 
     # small reward for torso moving towards target
@@ -93,13 +97,13 @@ class Humanoid(env.Env):
     target_rel = qp.pos[self.target_idx] - qp.pos[self.torso_idx]
     target_dist = jp.norm(target_rel)
     target_dir = target_rel / (1e-6 + target_dist)
-    target_reward = 1.5 * jp.dot(velocity, target_dir)
-    # target_reward = 0.
+    # target_reward = 1.5 * jp.dot(velocity, target_dir)
+    target_reward = 0.
 
     # big reward for reaching target and facing it
     target_hit = target_dist < self.target_radius
     target_hit = jp.where(target_hit, jp.float32(1), jp.float32(0))
-    target_reward += target_hit * 100
+    # target_reward += target_hit * 100
 
     # jax.experimental.host_callback.id_print(qp.pos[self.target_idx])
 
@@ -837,16 +841,124 @@ _SYSTEM_CONFIG = """
     second: "torso"
   }
   collide_include {
-    first: "Cylinder"
+    first: "Mesh1"
     second: "left_shin"
   }
   collide_include {
-    first: "Cylinder"
+    first: "Mesh1"
     second: "right_shin"
   }
   collide_include {
-    first: "Cylinder"
-    second: "floor"
+    first: "Mesh2"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh2"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh3"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh3"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh4"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh4"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh11"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh11"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh12"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh12"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh13"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh13"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh14"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh14"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh21"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh21"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh22"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh22"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh23"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh23"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh24"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh24"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Mesh0"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Mesh0"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Wall1"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Wall1"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Wall2"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Wall2"
+    second: "right_shin"
   }
 
   bodies {
@@ -856,22 +968,202 @@ _SYSTEM_CONFIG = """
         x: 0
       }
       sphere {
-        radius: 0.5
+        radius: 0.001
       }
     }
     frozen {
       all: true
     }
   }
+
   bodies {
-    name: "Mesh" mass: 1
-    colliders { mesh { name: "Cylinder" scale: 1. } }
-    inertia { x: 1 y: 1 z: 1 }
+    name: "Wall1"
+    colliders {
+      position {
+        x: 10.0
+        y: 3.8
+        z: 0
+      }
+      box {
+        halfsize { x: 20.0 y: 0.5 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+  bodies {
+    name: "Wall2"
+    colliders {
+      position {
+        x: 10.0
+        y: -6.3
+        z: 0
+      }
+      box {
+        halfsize { x: 20.0 y: 0.5 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
+  bodies {
+    name: "Mesh1" mass: 1
+    colliders { 
+      position { x: 7.0 y: -1.0 z: 0 }
+      mesh { name: "Box1" scale: 1 } }
+      frozen { all: true }
   }
   mesh_geometries {
-    name: "Cylinder"
-    path: "boxes.stl"
+    name: "Box1"
+    path: "box.ply"
   }
+  bodies {
+    name: "Mesh2" mass: 1
+    colliders { 
+      position { x: 7.0 y: 0.2 z: 0 }
+      mesh { name: "Box2" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box2"
+    path: "box.ply"
+  }
+  bodies {
+    name: "Mesh3" mass: 1
+    colliders { 
+      position { x: 7.0 y: 1.4 z: 0 }
+      mesh { name: "Box3" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box3"
+    path: "box.ply"
+  }
+  bodies {
+    name: "Mesh4" mass: 1
+    colliders { 
+      position { x: 7.0 y: 2.6 z: 0 }
+      mesh { name: "Box4" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box4"
+    path: "box.ply"
+  }
+
+
+  bodies {
+    name: "Mesh11" mass: 1
+    colliders { 
+      position { x: 14.0 y: -1.5 z: 0 }
+      mesh { name: "Box11" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box11"
+    path: "box.ply"
+  }
+  bodies {
+    name: "Mesh12" mass: 1
+    colliders { 
+      position { x: 14.0 y: -2.7 z: 0 }
+      mesh { name: "Box12" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box12"
+    path: "box.ply"
+  }
+  bodies {
+    name: "Mesh13" mass: 1
+    colliders { 
+      position { x: 14.0 y: -3.9 z: 0 }
+      mesh { name: "Box13" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box13"
+    path: "box.ply"
+  }
+  bodies {
+    name: "Mesh14" mass: 1
+    colliders { 
+      position { x: 14.0 y: -5.1 z: 0 }
+      mesh { name: "Box14" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box14"
+    path: "box.ply"
+  }
+
+  bodies {
+    name: "Mesh21" mass: 1
+    colliders { 
+      position { x: 21.0 y: -1.0 z: 0 }
+      mesh { name: "Box21" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box21"
+    path: "box.ply"
+  }
+  bodies {
+    name: "Mesh22" mass: 1
+    colliders { 
+      position { x: 21.0 y: 0.2 z: 0 }
+      mesh { name: "Box22" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box22"
+    path: "box.ply"
+  }
+  bodies {
+    name: "Mesh23" mass: 1
+    colliders { 
+      position { x: 21.0 y: 1.4 z: 0 }
+      mesh { name: "Box23" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box23"
+    path: "box.ply"
+  }
+  bodies {
+    name: "Mesh24" mass: 1
+    colliders { 
+      position { x: 21.0 y: 2.6 z: 0 }
+      mesh { name: "Box24" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box24"
+    path: "box.ply"
+  }  
+  bodies {
+    name: "Mesh0" mass: 1
+    colliders { 
+      position { x: 26.0 y: -2.0 z: 0 }
+      mesh { name: "Box0" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box0"
+    path: "box.ply"
+  }  
+
   defaults {
     angles {
       name: "left_knee"
@@ -889,8 +1181,6 @@ _SYSTEM_CONFIG = """
       name: "left_shoulder12"
       angle { x: -35. y: 0 z: 0 }
     }
-    # Initial position is high up in the air.
-    qps { name: "Mesh" pos: {x: 6 y: 0 z: 0} }
   }
   friction: 1.0
   gravity {
