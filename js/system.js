@@ -1,5 +1,5 @@
 import * as THREE from 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r135/build/three.module.js';
-import {ParametricGeometry} from 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r135/examples/jsm/geometries/ParametricGeometry.js';
+import { ParametricGeometry } from 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r135/examples/jsm/geometries/ParametricGeometry.js';
 
 const DEBUG_OPACITY = 0.6;
 
@@ -23,7 +23,7 @@ function createCheckerBoard() {
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(1000, 1000);
-  return new THREE.MeshStandardMaterial({map: texture});
+  return new THREE.MeshStandardMaterial({ map: texture });
 }
 
 function getCapsuleAxisSize(capsule) {
@@ -50,7 +50,7 @@ function getMeshAxisSize(geom) {
 function createCapsule(capsule, mat, debug) {
   const sphere_geom = new THREE.SphereGeometry(capsule.radius, 16, 16);
   const cylinder_geom = new THREE.CylinderGeometry(
-      capsule.radius, capsule.radius, capsule.length - 2 * capsule.radius);
+    capsule.radius, capsule.radius, capsule.length - 2 * capsule.radius);
 
   const sphere1 = new THREE.Mesh(sphere_geom, mat);
   sphere1.baseMaterial = sphere1.material;
@@ -83,7 +83,7 @@ function createCapsule(capsule, mat, debug) {
 
 function createBox(box, mat, debug) {
   const geom = new THREE.BoxBufferGeometry(
-      2 * box.halfsize.x, 2 * box.halfsize.y, 2 * box.halfsize.z);
+    2 * box.halfsize.x, 2 * box.halfsize.y, 2 * box.halfsize.z);
   const mesh = new THREE.Mesh(geom, mat);
   mesh.castShadow = true;
   mesh.baseMaterial = mesh.material;
@@ -95,7 +95,7 @@ function createBox(box, mat, debug) {
 }
 
 function createPlane(plane, mat) {
-  const geometry = new THREE.PlaneGeometry( 2000, 2000);
+  const geometry = new THREE.PlaneGeometry(2000, 2000);
   const mesh = new THREE.Mesh(geometry, mat);
   mesh.receiveShadow = true;
   mesh.baseMaterial = mesh.material;
@@ -145,21 +145,21 @@ function createClippedPlane(halfsizeX, halfsizeY, mat) {
   const bufferGeometry = new THREE.BufferGeometry();
   const vertices = new Float32Array([
     // 1st triangle.
-    -halfsizeX, -halfsizeY,  0.0,
-    halfsizeX, -halfsizeY,  0.0,
-    halfsizeX,  halfsizeY,  0.0,
+    -halfsizeX, -halfsizeY, 0.0,
+    halfsizeX, -halfsizeY, 0.0,
+    halfsizeX, halfsizeY, 0.0,
     // 2nd triangle.
-    halfsizeX,  halfsizeY,  0.0,
-    -halfsizeX,  halfsizeY,  0.0,
-    -halfsizeX, -halfsizeY,  0.0,
+    halfsizeX, halfsizeY, 0.0,
+    -halfsizeX, halfsizeY, 0.0,
+    -halfsizeX, -halfsizeY, 0.0,
     // 3rd triangle.
-    halfsizeX,  halfsizeY,  0.0,
-    halfsizeX, -halfsizeY,  0.0,
-    -halfsizeX, -halfsizeY,  0.0,
+    halfsizeX, halfsizeY, 0.0,
+    halfsizeX, -halfsizeY, 0.0,
+    -halfsizeX, -halfsizeY, 0.0,
     // 4th triangle.
-    -halfsizeX, -halfsizeY,  0.0,
-    -halfsizeX,  halfsizeY,  0.0,
-    halfsizeX,  halfsizeY,  0.0,
+    -halfsizeX, -halfsizeY, 0.0,
+    -halfsizeX, halfsizeY, 0.0,
+    halfsizeX, halfsizeY, 0.0,
   ]);
   bufferGeometry.setAttribute(
     'position',
@@ -178,14 +178,14 @@ function createMesh(mesh_config, geom, mat, debug) {
   const positions = new Float32Array(vertices.length * 3);
   const scale = mesh_config.scale ? mesh_config.scale : 1;
   // Convert the coordinate system.
-  vertices.forEach(function(vertice, i) {
-      positions[i * 3] = vertice.x * scale;
-      positions[i * 3 + 1] = vertice.y * scale;
-      positions[i * 3 + 2] = vertice.z * scale;
+  vertices.forEach(function (vertice, i) {
+    positions[i * 3] = vertice.x * scale;
+    positions[i * 3 + 1] = vertice.y * scale;
+    positions[i * 3 + 2] = vertice.z * scale;
   });
   const indices = new Uint16Array(geom.faces);
   bufferGeometry.setAttribute(
-      'position', new THREE.BufferAttribute(positions, 3));
+    'position', new THREE.BufferAttribute(positions, 3));
   bufferGeometry.setIndex(new THREE.BufferAttribute(indices, 1));
   bufferGeometry.computeVertexNormals();
 
@@ -214,7 +214,7 @@ function hasContactDebug(system) {
 function createScene(system) {
   const scene = new THREE.Scene();
   const meshGeoms = {};
-  system.config.meshGeometries.forEach(function(geom) {
+  system.config.meshGeometries.forEach(function (geom) {
     meshGeoms[geom.name] = geom;
   });
   if (system.debug) {
@@ -223,18 +223,18 @@ function createScene(system) {
     scene.add(worldAxis);
   }
   let minAxisSize = 1e6;
-  system.config.bodies.forEach(function(body) {
+  system.config.bodies.forEach(function (body) {
     const parent = new THREE.Group();
     parent.name = body.name.replaceAll('/', '_');  // sanitize node name
-    body.colliders.forEach(function(collider) {
+    body.colliders.forEach(function (collider) {
       const color = collider.color
         ? collider.color
         : body.name.toLowerCase() == 'target' ? '#ff2222' : '#665544';
       const mat = ('plane' in collider)
         ? createCheckerBoard()
         : ('heightMap' in collider)
-          ? new THREE.MeshStandardMaterial({color: color, flatShading: true})
-          : new THREE.MeshPhongMaterial({color: color});
+          ? new THREE.MeshStandardMaterial({ color: color, flatShading: true })
+          : new THREE.MeshPhongMaterial({ color: color });
       let child;
       let axisSize;
       if ('box' in collider) {
@@ -252,7 +252,7 @@ function createScene(system) {
         child = createHeightMap(collider.heightMap, mat);
       } else if ('mesh' in collider) {
         child = createMesh(
-            collider.mesh, meshGeoms[collider.mesh.name], mat, system.debug);
+          collider.mesh, meshGeoms[collider.mesh.name], mat, system.debug);
         axisSize = getMeshAxisSize(meshGeoms[collider.mesh.name]);
       } else if ('clippedPlane' in collider) {
         child = createClippedPlane(
@@ -263,7 +263,7 @@ function createScene(system) {
       }
       if (collider.rotation) {
         const rot = new THREE.Vector3(
-            collider.rotation.x, collider.rotation.y, collider.rotation.z);
+          collider.rotation.x, collider.rotation.y, collider.rotation.z);
         rot.multiplyScalar(Math.PI / 180);
         const eul = new THREE.Euler();
         eul.setFromVector3(rot);
@@ -271,7 +271,7 @@ function createScene(system) {
       }
       if (collider.position) {
         child.position.set(
-            collider.position.x, collider.position.y, collider.position.z);
+          collider.position.x, collider.position.y, collider.position.z);
       }
       if (system.debug && axisSize) {
         const debugAxis = new THREE.AxesHelper(axisSize);
@@ -279,7 +279,8 @@ function createScene(system) {
         minAxisSize = Math.min(minAxisSize, axisSize);
       }
       child.visible = !collider.hidden;
-      parent.add(child);
+      if (child)
+        parent.add(child);
     });
     scene.add(parent);
   });
@@ -291,7 +292,7 @@ function createScene(system) {
       parent.name = 'contact' + i;
       let child;
 
-      const mat = new THREE.MeshPhongMaterial({color: 0xff0000});
+      const mat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
       const sphere_geom = new THREE.SphereGeometry(minAxisSize / 20.0, 6, 6);
       child = new THREE.Mesh(sphere_geom, mat);
       child.baseMaterial = child.material;
@@ -308,17 +309,17 @@ function createScene(system) {
 
 function createTrajectory(system) {
   const times =
-      [...Array(system.pos.length).keys()].map(x => x * system.config.dt);
+    [...Array(system.pos.length).keys()].map(x => x * system.config.dt);
   const tracks = [];
 
-  system.config.bodies.forEach(function(body, bi) {
+  system.config.bodies.forEach(function (body, bi) {
     const group = body.name.replaceAll('/', '_');  // sanitize node name
     const pos = system.pos.map(p => [p[bi][0], p[bi][1], p[bi][2]]);
     const rot = system.rot.map(r => [r[bi][1], r[bi][2], r[bi][3], r[bi][0]]);
     tracks.push(new THREE.VectorKeyframeTrack(
-        'scene/' + group + '.position', times, pos.flat()));
+      'scene/' + group + '.position', times, pos.flat()));
     tracks.push(new THREE.QuaternionKeyframeTrack(
-        'scene/' + group + '.quaternion', times, rot.flat()));
+      'scene/' + group + '.quaternion', times, rot.flat()));
   });
 
   // Add contact point debug.
@@ -328,15 +329,15 @@ function createTrajectory(system) {
       const pos = system.contact_pos.map(p => [p[i][0], p[i][1], p[i][2]]);
       const visible = system.contact_penetration.map(p => p[i] > 1e-6);
       tracks.push(new THREE.VectorKeyframeTrack(
-          'scene/' + group + '.position', times, pos.flat(),
-          THREE.InterpolateDiscrete));
+        'scene/' + group + '.position', times, pos.flat(),
+        THREE.InterpolateDiscrete));
       tracks.push(new THREE.BooleanKeyframeTrack(
-          'scene/' + group + '.visible', times, visible,
-          THREE.InterpolateDiscrete));
+        'scene/' + group + '.visible', times, visible,
+        THREE.InterpolateDiscrete));
     }
   }
 
   return new THREE.AnimationClip('Action', -1, tracks);
 }
 
-export {createScene, createTrajectory};
+export { createScene, createTrajectory };
