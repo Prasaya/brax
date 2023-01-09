@@ -13,6 +13,7 @@ results_mesh
 braxlogs
 results_multi_trial
 brax/tests/testdata
+aparams
 
 ####### UNITY STUFF
 
