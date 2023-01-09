@@ -72,12 +72,14 @@ class Humanoid(env.Env):
   def step(self, state: env.State, action: jp.ndarray) -> env.State:
     """Run one timestep of the environment's dynamics."""
     qp, info = self.sys.step(state.qp, action)
-    
+
     # forward reward for moving forward
     com_before = self._center_of_mass(state.qp)
     com_after = self._center_of_mass(qp)
     velocity = (com_after - com_before) / self.sys.config.dt
-    in_between = jp.where(com_after[0] < 21., 1.0, -1.0)
+    in_between = jp.where(com_after[0] < 41., 1.0, 0.0)
+    in_between = jp.where(com_after[0] > 31., in_between, -1.0)
+    in_between = jp.where(com_after[0] < 21., 1.0, in_between)
     in_between = jp.where(com_after[0] > 11., in_between, -1.0)
     forward_reward = self._forward_reward_weight * velocity[0] + self._forward_reward_weight * velocity[1] * in_between * 0.35
     # forward_reward = 0.
@@ -500,7 +502,7 @@ _SYSTEM_CONFIG = """
     mass: 1.0
     frozen { all: true }
   }
-  
+
   joints {
     name: "abdomen_yz"
     parent: "torso"
@@ -842,12 +844,28 @@ _SYSTEM_CONFIG = """
     first: "Wall21"
     second: "left_shin"
   }
-   collide_include {
+  collide_include {
     first: "Wall22"
     second: "right_shin"
   }
   collide_include {
     first: "Wall22"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Wall31"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Wall31"
+    second: "left_shin"
+  }
+  collide_include {
+    first: "Wall32"
+    second: "right_shin"
+  }
+  collide_include {
+    first: "Wall32"
     second: "left_shin"
   }
 
@@ -883,7 +901,7 @@ _SYSTEM_CONFIG = """
         z: 0
       }
       box {
-        halfsize { x: 1.0 y: 5.0 z: 0.5 }
+        halfsize { x: 1.0 y: 5.5 z: 0.5 }
       }
     }
     inertia {
@@ -926,7 +944,7 @@ _SYSTEM_CONFIG = """
         z: 0
       }
       box {
-        halfsize { x: 1.0 y: 5.0 z: 0.5 }
+        halfsize { x: 1.0 y: 5.5 z: 0.5 }
       }
     }
     inertia {
@@ -939,7 +957,7 @@ _SYSTEM_CONFIG = """
   }
 
   bodies {
-    name: "Wall31"
+    name: "Wall21"
     colliders {
       position {
         x: 25.0
@@ -960,7 +978,7 @@ _SYSTEM_CONFIG = """
   }
 
   bodies {
-    name: "Wall32"
+    name: "Wall22"
     colliders {
       position {
         x: 30.0
@@ -968,7 +986,7 @@ _SYSTEM_CONFIG = """
         z: 0
       }
       box {
-        halfsize { x: 1.0 y: 5.0 z: 0.5 }
+        halfsize { x: 1.0 y: 5.5 z: 0.5 }
       }
     }
     inertia {
@@ -979,6 +997,49 @@ _SYSTEM_CONFIG = """
     mass: 1.0
     frozen { all: true }
   }
+
+  bodies {
+    name: "Wall31"
+    colliders {
+      position {
+        x: 35.0
+        y: -7.5
+        z: 0
+      }
+      box {
+        halfsize { x: 5.0 y: 0.5 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
+  bodies {
+    name: "Wall32"
+    colliders {
+      position {
+        x: 40.0
+        y: -7.5
+        z: 0
+      }
+      box {
+        halfsize { x: 1.0 y: 5.5 z: 0.5 }
+      }
+    }
+    inertia {
+      x: 1.0
+      y: 1.0
+      z: 1.0
+    }
+    mass: 1.0
+    frozen { all: true }
+  }
+
 
   bodies {
     name: "Target"
@@ -1022,13 +1083,13 @@ _SYSTEM_CONFIG = """
   dt: 0.015
   substeps: 8
   dynamics_mode: "pbd"
-  
+
   """
 
 
 
 _SYSTEM_CONFIG_SPRING = """
-  
+
 """
 
   # Maze type walls
@@ -1119,4 +1180,3 @@ _SYSTEM_CONFIG_SPRING = """
 
   # Target
 
-  
