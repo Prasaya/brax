@@ -12,6 +12,7 @@ __pycache__
 results_mesh
 braxlogs
 results_multi_trial
+brax/tests/testdata
 
 ####### UNITY STUFF
 
