@@ -24,7 +24,7 @@ from setuptools import setup
 
 setup(
     name="brax",
-    version="0.1.0",
+    version="0.1.1",
     description=("A differentiable physics engine written in JAX."),
     author="Brax Authors",
     author_email="no-reply@google.com",
@@ -39,6 +39,7 @@ setup(
         "absl-py",
         "dataclasses",
         "dm_env",
+        "etils",
         "flax",
         "grpcio",
         "gym",
@@ -51,8 +52,9 @@ setup(
         "optax",
         "Pillow",
         "pytinyrenderer",
+        "scipy",
         "tensorboardX",
-        "trimesh",
+        "trimesh==3.9.35",
         "typing-extensions",
     ],
     extras_require={
