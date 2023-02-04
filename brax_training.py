@@ -25,7 +25,7 @@ import logging
 dir_var = str(datetime.now())
 folder_name = "results_multi_trial/result" + dir_var
 os.mkdir(folder_name)
-os.mkdir(f'/home/nevus/rl/brax/aparams/{dir_var}')
+os.mkdir(f'./aparams/{dir_var}')
 
 """First let's pick an environment to train an agent:"""
 
@@ -50,7 +50,7 @@ Trainers take as input an environment function and some hyperparameters, and ret
 
 # Hyperparameters for humanoid.
 train_fn = functools.partial(ppo.train,
-                             num_timesteps=5_000_000_000,
+                             num_timesteps=1_000_000_000,
                              episode_length=4000,
                              action_repeat=1,
                              num_envs=2048,
@@ -88,13 +88,13 @@ def progress(num_steps, metrics, params, make_policy, env):
     plt.savefig(os.path.join(folder_name, "graph.png"))
     print("Environment steps : ", num_steps,
           "      Reward : ", metrics['eval/episode_reward'])
-    model.save_params(f'/home/nevus/rl/brax/aparams/{dir_var}/{num_steps}', params)
+    model.save_params(f'./aparams/{dir_var}/{num_steps}', params)
 
 # Train and save data
 make_inference_fn, params, _ = train_fn(environment=env, progress_fn=progress)
 print(f'time to jit: {times[1] - times[0]}')
 print(f'time to train: {times[-1] - times[1]}')
-model.save_params(f'/home/nevus/rl/brax/aparams/{dir_var}/params', params)
+model.save_params(f'./aparams/{dir_var}/params', params)
 
 def generate_render(model_path: str, env_name: str, render_output: str):
     params = model.load_params(model_path)
@@ -117,8 +117,8 @@ def generate_render(model_path: str, env_name: str, render_output: str):
     html.save_html(render_output,
                 env.sys, [s.qp for s in rollout], True)
 
-generate_render(f'/home/nevus/rl/brax/aparams/{dir_var}/params', env_name, os.path.join(folder_name, "final_render.html"))
+generate_render(f'./aparams/{dir_var}/params', env_name, os.path.join(folder_name, "final_render.html"))
 
-for model_file in os.listdir(f'/home/nevus/rl/brax/aparams/{dir_var}'):
-    filename = os.path.join(f'/home/nevus/rl/brax/aparams/{dir_var}', model_file)
+for model_file in os.listdir(f'./aparams/{dir_var}'):
+    filename = os.path.join(f'./aparams/{dir_var}', model_file)
     generate_render(filename, env_name, os.path.join(folder_name, f"render-{model_file}.html"))
