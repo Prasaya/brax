@@ -945,21 +945,22 @@ _SYSTEM_CONFIG = """
     second: "right_shin"
   }
   collide_include {
-    first: "Wall1"
+    first: "Mesh01"
     second: "left_shin"
   }
   collide_include {
-    first: "Wall1"
+    first: "Mesh01"
     second: "right_shin"
   }
   collide_include {
-    first: "Wall2"
+    first: "Mesh02"
     second: "left_shin"
   }
   collide_include {
-    first: "Wall2"
+    first: "Mesh02"
     second: "right_shin"
   }
+
 
   bodies {
     name: "Target"
@@ -974,47 +975,6 @@ _SYSTEM_CONFIG = """
     frozen {
       all: true
     }
-  }
-
-  bodies {
-    name: "Wall1"
-    colliders {
-      position {
-        x: 10.0
-        y: 3.8
-        z: 0
-      }
-      box {
-        halfsize { x: 20.0 y: 0.5 z: 0.5 }
-      }
-    }
-    inertia {
-      x: 1.0
-      y: 1.0
-      z: 1.0
-    }
-    mass: 1.0
-    frozen { all: true }
-  }
-  bodies {
-    name: "Wall2"
-    colliders {
-      position {
-        x: 10.0
-        y: -6.3
-        z: 0
-      }
-      box {
-        halfsize { x: 20.0 y: 0.5 z: 0.5 }
-      }
-    }
-    inertia {
-      x: 1.0
-      y: 1.0
-      z: 1.0
-    }
-    mass: 1.0
-    frozen { all: true }
   }
 
   bodies {
@@ -1162,6 +1122,28 @@ _SYSTEM_CONFIG = """
   mesh_geometries {
     name: "Box0"
     path: "box.ply"
+  }  
+  bodies {
+    name: "Mesh01" mass: 1
+    colliders { 
+      position { x: 10.0 y: 3.8 z: 0 }
+      mesh { name: "Box01" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box01"
+    path: "box_long.ply"
+  }  
+  bodies {
+    name: "Mesh02" mass: 1
+    colliders { 
+      position { x: 10.0 y: -6.3 z: 0 }
+      mesh { name: "Box02" scale: 1 } }
+      frozen { all: true }
+  }
+  mesh_geometries {
+    name: "Box02"
+    path: "box_long.ply"
   }  
 
   defaults {
