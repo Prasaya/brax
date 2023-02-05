@@ -30,13 +30,14 @@ os.mkdir(f'./aparams/{dir_var}')
 """First let's pick an environment to train an agent:"""
 
 env_name = "humanoidNevus"
+env_name = "humanoidCMU"
 env = envs.get_environment(env_name=env_name)
 state = env.reset(rng=jp.random_prngkey(seed=0))
 
 html.save_html(os.path.join(folder_name, "initial_render.html"),
                env.sys, [state.qp], True)
 
-# sys.exit(0)
+sys.exit(0)
 
 
 """# Training

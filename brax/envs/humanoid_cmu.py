@@ -35,20 +35,14 @@ class Humanoid(env.Env):
         self._exclude_current_positions_from_observation = (
             exclude_current_positions_from_observation
         )
-
-        self.torso_idx = self.sys.body.index["torso"]
-        self.target_idx = self.sys.body.index["Target"]
-        print("Target index : ", self.sys.body.index["Target"])
-        # print("Torso index : ", self.torso_idx)
-        # print( "QP position of torso index : ", env.State.qp.pos[self.torso_idx] )
-        # jax.experimental.host_callback.id_print(f"QP position of torso index : {env.State.qp.pos[self.torso_idx]}")
         print("System body consists  : ", self.sys.body)
 
     def reset(self, rng: jp.ndarray) -> env.State:
         """Resets the environment to an initial state."""
         rng, rng1, rng2 = jp.random_split(rng, 3)
 
-        qpos = self.sys.default_angle() + self._noise(rng1)
+        # qpos = self.sys.default_angle() + self._noise(rng1)
+        qpos = self.sys.default_angle()
         qvel = self._noise(rng2)
 
         qp = self.sys.default_qp(joint_angle=qpos, joint_velocity=qvel)
@@ -66,10 +60,10 @@ class Humanoid(env.Env):
             "x_velocity": zero,
             "y_velocity": zero,
         }
-        pos = jp.index_update(
-            qp.pos, self.target_idx, jax.numpy.array([10.0, 10.0, 1.5])
-        )
-        qp = qp.replace(pos=pos)
+        # pos = jp.index_update(
+        #     qp.pos, self.target_idx, jax.numpy.array([10.0, 10.0, 1.5])
+        # )
+        # qp = qp.replace(pos=pos)
         return env.State(qp, obs, reward, done, metrics)
 
     def step(self, state: env.State, action: jp.ndarray) -> env.State:
@@ -90,15 +84,6 @@ class Humanoid(env.Env):
         )
         # forward_reward = 0.
 
-        # small reward for torso moving towards target
-        torso_delta = com_after - com_before
-        target_rel = qp.pos[self.target_idx] - com_after
-        target_dist = jp.norm(target_rel)
-        target_dir = target_rel / (1e-6 + target_dist)
-        # target_reward = self._forward_reward_weight * jp.dot(velocity, target_dir)
-        target_reward = 0.0
-
-        # jax.experimental.host_callback.id_print(qp.pos[self.target_idx])
 
         min_z, max_z = self._healthy_z_range
         is_healthy = jp.where(qp.pos[0, 2] < min_z, x=0.0, y=1.0)
@@ -2867,10 +2852,6 @@ actuators {
   angle {
   }
 }
-friction: 1.0
-gravity {
-  z: -9.81
-}
 velocity_damping: 1.0
 angular_damping: -0.05
 baumgarte_erp: 0.1
@@ -4710,10 +4691,8 @@ friction: 1.0
 gravity {
   z: -9.81
 }
-angular_damping: -0.05
 dt: 0.015
 substeps: 8
-dynamics_mode: "pbd"
 
 
   """
