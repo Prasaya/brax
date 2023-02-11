@@ -10,7 +10,7 @@ import brax
 
 from brax import envs
 from brax import jumpy as jp
-from brax.io import html
+from brax.io import html, image
 from brax.io import model
 from brax.training.agents.ppo import train as ppo
 from brax.training.agents.sac import train as sac
@@ -27,14 +27,17 @@ os.mkdir(folder_name)
 
 """First let's pick an environment to train an agent:"""
 
-env_name = "mesh"
+env_name = "humanoidNevus"
 env = envs.get_environment(env_name=env_name, resource_paths=["./brax/tests/testdata"])
 state = env.reset(rng=jp.random_prngkey(seed=0))
 
 html.save_html(os.path.join(folder_name, "initial_render.html"),
                env.sys, [state.qp], True)
 
-sys.exit(0)
+with open(os.path.join(folder_name, "initial_render.png"), "wb") as f:
+    f.write(image.render(env.sys, [state.qp], width=1920, height=1080))
+
+# sys.exit(0)
 
 
 """# Training
@@ -48,7 +51,7 @@ Trainers take as input an environment function and some hyperparameters, and ret
 
 # Hyperparameters for humanoid.
 train_fn = functools.partial(ppo.train,
-                             num_timesteps=50_000_000,
+                             num_timesteps=1_000_000_000,
                              episode_length=1000,
                              action_repeat=1,
                              num_envs=2048,
@@ -111,7 +114,7 @@ We can use the policy to generate a rollout for visualization:
 # @title Visualizing a trajectory of the learned inference function
 
 # create an env with auto-reset
-env = envs.create(env_name=env_name)
+env = envs.create(env_name=env_name, resource_paths=["./brax/tests/testdata"])
 jit_env_reset = jax.jit(env.reset)
 jit_env_step = jax.jit(env.step)
 jit_inference_fn = jax.jit(inference_fn)

@@ -4,12 +4,12 @@
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r135/build/three.module.js';
-import {OrbitControls} from 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r135/examples/jsm/controls/OrbitControls.js';
-import {GUI} from 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r135/examples/jsm/libs/lil-gui.module.min.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r135/examples/jsm/controls/OrbitControls.js';
+import { GUI } from 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r135/examples/jsm/libs/lil-gui.module.min.js';
 
-import {Animator} from './animator.js';
-import {Selector} from './selector.js';
-import {createScene, createTrajectory} from './system.js';
+import { Animator } from './animator.js';
+import { Selector } from './selector.js';
+import { createScene, createTrajectory } from './system.js';
 
 function downloadDataUri(name, uri) {
   let link = document.createElement('a');
@@ -22,14 +22,14 @@ function downloadDataUri(name, uri) {
 
 function downloadFile(name, contents, mime) {
   mime = mime || 'text/plain';
-  let blob = new Blob([contents], {type: mime});
+  let blob = new Blob([contents], { type: mime });
   let link = document.createElement('a');
   document.body.appendChild(link);
   link.download = name;
   link.href = window.URL.createObjectURL(blob);
-  link.onclick = function(e) {
+  link.onclick = function (e) {
     let scope = this;
-    setTimeout(function() {
+    setTimeout(function () {
       window.URL.revokeObjectURL(scope.href);
     }, 1500);
   };
@@ -38,8 +38,8 @@ function downloadFile(name, contents, mime) {
 }
 
 const hoverMaterial =
-    new THREE.MeshPhongMaterial({color: 0x332722, emissive: 0x114a67});
-const selectMaterial = new THREE.MeshPhongMaterial({color: 0x2194ce});
+  new THREE.MeshPhongMaterial({ color: 0x332722, emissive: 0x114a67 });
+const selectMaterial = new THREE.MeshPhongMaterial({ color: 0x2194ce });
 
 class Viewer {
   constructor(domElement, system) {
@@ -52,7 +52,7 @@ class Viewer {
     this.trajectory = createTrajectory(system);
 
     /* set up renderer, camera, and add default scene elements */
-    this.renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.shadowMap.enabled = true;
     this.renderer.outputEncoding = THREE.sRGBEncoding;
@@ -96,12 +96,12 @@ class Viewer {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enablePan = false;
     this.controls.enableDamping = true;
-    this.controls.addEventListener('start', () => {this.setDirty();});
-    this.controls.addEventListener('change', () => {this.setDirty();});
+    this.controls.addEventListener('start', () => { this.setDirty(); });
+    this.controls.addEventListener('change', () => { this.setDirty(); });
     this.controlTargetPos = this.controls.target.clone();
 
     /* set up gui */
-    this.gui = new GUI({autoPlace: false});
+    this.gui = new GUI({ autoPlace: false });
     this.domElement.parentElement.appendChild(this.gui.domElement);
     this.gui.domElement.style.position = 'absolute';
     this.gui.domElement.style.right = 0;
@@ -112,9 +112,9 @@ class Viewer {
     cameraFolder.add(this.camera, 'freezeAngle').name('Freeze Angle');
     cameraFolder.add(this.camera, 'follow').name('Follow Target');
     cameraFolder.add(this.camera, 'followDistance')
-        .name('Follow Distance')
-        .min(1)
-        .max(50);
+      .name('Follow Distance')
+      .min(1)
+      .max(50);
 
     /* set up animator and load trajectory */
     this.animator = new Animator(this);
@@ -138,12 +138,12 @@ class Viewer {
         }
       }
       defaults(
-          folder.add(c.position, 'x').name('pos.x'),
-          folder.add(c.position, 'y').name('pos.y'),
-          folder.add(c.position, 'z').name('pos.z'),
-          folder.add(c.rotation, 'x').name('rot.x'),
-          folder.add(c.rotation, 'y').name('rot.y'),
-          folder.add(c.rotation, 'z').name('rot.z'),
+        folder.add(c.position, 'x').name('pos.x'),
+        folder.add(c.position, 'y').name('pos.y'),
+        folder.add(c.position, 'z').name('pos.z'),
+        folder.add(c.rotation, 'x').name('rot.x'),
+        folder.add(c.rotation, 'y').name('rot.y'),
+        folder.add(c.rotation, 'z').name('rot.z'),
       );
     }
     let saveFolder = this.gui.addFolder('Save / Capture');
@@ -155,13 +155,13 @@ class Viewer {
     /* set up body selector */
     this.selector = new Selector(this);
     this.selector.addEventListener(
-        'hoveron', (evt) => this.setHover(evt.object, true));
+      'hoveron', (evt) => this.setHover(evt.object, true));
     this.selector.addEventListener(
-        'hoveroff', (evt) => this.setHover(evt.object, false));
+      'hoveroff', (evt) => this.setHover(evt.object, false));
     this.selector.addEventListener(
-        'select', (evt) => this.setSelected(evt.object, true));
+      'select', (evt) => this.setSelected(evt.object, true));
     this.selector.addEventListener(
-        'deselect', (evt) => this.setSelected(evt.object, false));
+      'deselect', (evt) => this.setSelected(evt.object, false));
 
     this.defaultTarget = this.selector.selectable[0];
     this.target = this.defaultTarget;
@@ -174,7 +174,7 @@ class Viewer {
     requestAnimationFrame(() => this.setSize());
 
     const resizeObserver = new ResizeObserver(() => this.resizeCanvasToDisplaySize());
-    resizeObserver.observe(this.domElement, {box: 'content-box'});
+    resizeObserver.observe(this.domElement, { box: 'content-box' });
 
     /* start animation */
     this.animate();
@@ -193,7 +193,7 @@ class Viewer {
     }
     if (this.camera.type == 'OrthographicCamera') {
       this.camera.right =
-          this.camera.left + w * (this.camera.top - this.camera.bottom) / h;
+        this.camera.left + w * (this.camera.top - this.camera.bottom) / h;
     } else {
       this.camera.aspect = w / h;
     }
@@ -226,13 +226,13 @@ class Viewer {
     if (this.camera.follow) {
       this.controls.target.lerp(targetPos, 0.1);
       if (this.camera.position.distanceTo(this.controls.target) >
-          this.camera.followDistance) {
+        this.camera.followDistance) {
         const followBehind = this.controls.target.clone()
-                                 .sub(this.camera.position)
-                                 .normalize()
-                                 .multiplyScalar(this.camera.followDistance)
-                                 .sub(this.controls.target)
-                                 .negate();
+          .sub(this.camera.position)
+          .normalize()
+          .multiplyScalar(this.camera.followDistance)
+          .sub(this.controls.target)
+          .negate();
         this.camera.position.lerp(followBehind, 0.5);
         this.setDirty();
       }
@@ -277,7 +277,7 @@ class Viewer {
   setHover(object, hovering) {
     this.setDirty();
     if (!object.selected) {
-      object.traverse(function(child) {
+      object.traverse(function (child) {
         if (child instanceof THREE.Mesh) {
           child.material = hovering ? hoverMaterial : child.baseMaterial;
         }
@@ -285,7 +285,7 @@ class Viewer {
     }
     if (object.name in this.bodyFolders) {
       const titleElement =
-          this.bodyFolders[object.name].domElement.querySelector('.title');
+        this.bodyFolders[object.name].domElement.querySelector('.title');
       if (titleElement) {
         titleElement.style.backgroundColor = hovering ? '#2fa1d6' : '#000';
       }
@@ -311,4 +311,4 @@ class Viewer {
   }
 }
 
-export {Viewer};
+export { Viewer };

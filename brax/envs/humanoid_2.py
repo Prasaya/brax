@@ -36,7 +36,10 @@ class Humanoid(env.Env):
 
     self.torso_idx = self.sys.body.index['torso']
     self.target_idx = self.sys.body.index['Target']
-    print("Target index : ", self.sys.body.index['Target'])
+    self.target_radius = 0.5
+    self.target_x_distance = 15
+    self.target_y_distance = 3
+    # print("Target index : ", self.sys.body.index['Target'])
     # print("Torso index : ", self.torso_idx)
     # print( "QP position of torso index : ", env.State.qp.pos[self.torso_idx] )
     # jax.experimental.host_callback.id_print(f"QP position of torso index : {env.State.qp.pos[self.torso_idx]}")
@@ -60,14 +63,19 @@ class Humanoid(env.Env):
         'reward_quadctrl': zero,
         'reward_alive': zero,
         'x_position': zero,
+        'x_position_torso': zero,
+        'x_position_target': zero,
         'y_position': zero,
+        'y_position_torso': zero,
+        'y_position_target': zero,
         'distance_from_origin': zero,
         'x_velocity': zero,
         'y_velocity': zero,
     }
-    pos = jp.index_update(qp.pos, self.target_idx, jax.numpy.array([10., 10., 1.5]))
+    info = {'rng': rng}
+    pos = jp.index_update(qp.pos, self.target_idx, jax.numpy.array([5., 0., 1.0]))
     qp = qp.replace(pos=pos)
-    return env.State(qp, obs, reward, done, metrics)
+    return env.State(qp, obs, reward, done, metrics, info)
 
   def step(self, state: env.State, action: jp.ndarray) -> env.State:
     """Run one timestep of the environment's dynamics."""
@@ -77,20 +85,25 @@ class Humanoid(env.Env):
     com_before = self._center_of_mass(state.qp)
     com_after = self._center_of_mass(qp)
     velocity = (com_after - com_before) / self.sys.config.dt
-    in_between = jp.where(com_after[0] < 41., 1.0, 0.0)
-    in_between = jp.where(com_after[0] > 31., in_between, -1.0)
-    in_between = jp.where(com_after[0] < 21., 1.0, in_between)
-    in_between = jp.where(com_after[0] > 11., in_between, -1.0)
+    in_between = jp.where(com_after[0] >21., 0.0, -1.0)
+    in_between = jp.where(com_after[0] < 14., 1.0, in_between)
+    in_between = jp.where(com_after[0] > 7., in_between, -1.0)
     forward_reward = self._forward_reward_weight * velocity[0] + self._forward_reward_weight * velocity[1] * in_between * 0.35
+    # forward_reward = self._forward_reward_weight * velocity[0]
     # forward_reward = 0.
 
     # small reward for torso moving towards target
-    torso_delta = com_after - com_before
-    target_rel = qp.pos[self.target_idx] - com_after
+    torso_delta = qp.pos[self.torso_idx] - state.qp.pos[self.torso_idx]
+    target_rel = qp.pos[self.target_idx] - qp.pos[self.torso_idx]
     target_dist = jp.norm(target_rel)
     target_dir = target_rel / (1e-6 + target_dist)
-    # target_reward = self._forward_reward_weight * jp.dot(velocity, target_dir)
+    # target_reward = 1.5 * jp.dot(velocity, target_dir)
     target_reward = 0.
+
+    # big reward for reaching target and facing it
+    target_hit = target_dist < self.target_radius
+    target_hit = jp.where(target_hit, jp.float32(1), jp.float32(0))
+    # target_reward += target_hit * 100
 
     # jax.experimental.host_callback.id_print(qp.pos[self.target_idx])
 
@@ -114,11 +127,30 @@ class Humanoid(env.Env):
         reward_quadctrl=-ctrl_cost,
         reward_alive=healthy_reward,
         x_position=com_after[0],
+        x_position_torso=qp.pos[self.torso_idx][0],
+        x_position_target=qp.pos[self.target_idx][0],
         y_position=com_after[1],
+        y_position_torso=qp.pos[self.torso_idx][1],
+        y_position_target=qp.pos[self.target_idx][1],
         distance_from_origin=jp.norm(com_after),
         x_velocity=velocity[0],
         y_velocity=velocity[1],
     )
+
+    # Teleport hit targets
+    rng, rng1, rng2 = jp.random_split(state.info['rng'], 3)
+    x_dist = self.target_radius + jp.random_uniform(rng1, low=5.0, high=15.0)
+    y_dist = self.target_radius + self.target_y_distance * jp.random_uniform(rng1)
+    ang = jp.pi * 2. * jp.random_uniform(rng2)
+    target_x = qp.pos[self.target_idx][0] + x_dist * abs(jp.cos(ang))
+    target_y = qp.pos[self.target_idx][1] + y_dist * jp.sin(ang)
+    target_z = 1.0
+    target = jp.array([target_x, target_y, target_z]).transpose()
+
+    target = jp.where(target_hit, target, qp.pos[self.target_idx])
+    pos = jp.index_update(qp.pos, self.target_idx, target)
+    qp = qp.replace(pos=pos)
+    state.info.update(rng=rng)
 
     return state.replace(qp=qp, obs=obs, reward=reward, done=done)
 
@@ -651,8 +683,8 @@ _SYSTEM_CONFIG = """
       y: 35.26439
     }
     angle_limit {
-      min: -5.0
-      max: 5.0
+      min: 30.0
+      max: 40.0
     }
     angle_limit {
       min: -90.0
@@ -696,8 +728,8 @@ _SYSTEM_CONFIG = """
       y: -35.26439
     }
     angle_limit {
-      min: -5.0
-      max: 5.0
+      min: -40.0
+      max: -30.0
     }
     angle_limit {
       min: -40.0
@@ -1045,7 +1077,7 @@ _SYSTEM_CONFIG = """
     name: "Target"
     colliders {
       position {
-        x: +10
+        x: 0
       }
       sphere {
         radius: 0.001
