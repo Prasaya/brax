@@ -6,6 +6,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import copy
 import sys
+import shutil
 
 import brax
 
@@ -16,6 +17,7 @@ from brax.io import model
 from brax.training.agents.ppo import train as ppo
 from brax.training.agents.sac import train as sac
 import logging
+
 # logging.basicConfig(level=logging.INFO)
 # loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
 # for logger in loggers:
@@ -23,19 +25,44 @@ import logging
 
 
 dir_var = str(datetime.now())
-folder_name = "results_multi_trial/result" + dir_var
-os.mkdir(folder_name)
-os.mkdir(f'./aparams/{dir_var}')
+dir_var = "humanoid_cmu2"
+
+folder_name = "results/result_" + dir_var
+if not os.path.exists(folder_name):
+    os.mkdir(folder_name)
+
+aparams_folder_name = "./aparams/" + dir_var
+if not os.path.exists(aparams_folder_name):
+    os.mkdir(aparams_folder_name)
+
+# os.remove(os.path.join(folder_name, "initial_render.html"))
+# sys.exit(0)
 
 """First let's pick an environment to train an agent:"""
 
 env_name = "humanoidNevus"
 env_name = "humanoidCMU"
-env = envs.get_environment(env_name=env_name)
+# env_name = "humanoidCMUSuite"
+# env_name = "humanoid"
+env = envs.create(env_name=env_name)
 state = env.reset(rng=jp.random_prngkey(seed=0))
 
-html.save_html(os.path.join(folder_name, "initial_render.html"),
-               env.sys, [state.qp], True)
+print(env.observation_size, env.action_size)
+
+html.save_html(
+    os.path.join(folder_name, "initial_render.html"),
+    env.sys,
+    [state.qp],
+    True,
+)
+html.save_html(
+    os.path.join(folder_name, "initial_debug_render.html"),
+    env.sys,
+    [state.qp],
+    True,
+    512,
+    [],
+)
 
 sys.exit(0)
 
@@ -50,25 +77,26 @@ Trainers take as input an environment function and some hyperparameters, and ret
 """
 
 # Hyperparameters for humanoid.
-train_fn = functools.partial(ppo.train,
-                             num_timesteps=1_000_000_000,
-                             episode_length=4000,
-                             action_repeat=1,
-                             num_envs=2048,
-                             learning_rate=3e-4,
-                             entropy_cost=1e-3,
-                             discounting=0.99,
-                             unroll_length=20,
-                             batch_size=512,
-                             num_minibatches=4,
-                             normalize_observations=True,
-                             reward_scaling=5.,
-                             num_evals=20,
-                             num_updates_per_batch=8,
-                             )
+train_fn = functools.partial(
+    ppo.train,
+    num_timesteps=10_000_000,
+    episode_length=4000,
+    action_repeat=1,
+    num_envs=2048,
+    learning_rate=3e-4,
+    entropy_cost=1e-3,
+    discounting=0.99,
+    unroll_length=20,
+    batch_size=512,
+    num_minibatches=4,
+    normalize_observations=True,
+    reward_scaling=5.0,
+    num_evals=20,
+    num_updates_per_batch=8,
+)
 
 max_y = 130000
-min_y = {'reacher': -100, 'pusher': -150}.get(env_name, 0)
+min_y = {"reacher": -100, "pusher": -150}.get(env_name, 0)
 
 xdata, ydata = [], []
 times = [datetime.now()]
@@ -78,24 +106,30 @@ def progress(num_steps, metrics, params, make_policy, env):
     # print(metrics)
     times.append(datetime.now())
     xdata.append(num_steps)
-    ydata.append(metrics['eval/episode_reward'])
+    ydata.append(metrics["eval/episode_reward"])
     # clear_output(wait=True)
-    plt.xlim([0, train_fn.keywords['num_timesteps']])
+    plt.xlim([0, train_fn.keywords["num_timesteps"]])
     plt.ylim([min_y, max_y])
-    plt.xlabel('# environment steps')
-    plt.ylabel('reward per episode')
+    plt.xlabel("# environment steps")
+    plt.ylabel("reward per episode")
     plt.plot(xdata, ydata)
     plt.show()
-    plt.savefig(os.path.join(folder_name, "graph.png"))
-    print("Environment steps : ", num_steps,
-          "      Reward : ", metrics['eval/episode_reward'])
-    model.save_params(f'./aparams/{dir_var}/{num_steps}', params)
+    plt.savefig(os.path.join(folder_name, f"{num_steps}-graph.png"))
+    print(
+        "Environment steps : ",
+        num_steps,
+        "      Reward : ",
+        metrics["eval/episode_reward"],
+    )
+    model.save_params(f"./aparams/{dir_var}/{num_steps}", params)
+
 
 # Train and save data
 make_inference_fn, params, _ = train_fn(environment=env, progress_fn=progress)
-print(f'time to jit: {times[1] - times[0]}')
-print(f'time to train: {times[-1] - times[1]}')
-model.save_params(f'./aparams/{dir_var}/params', params)
+print(f"time to jit: {times[1] - times[0]}")
+print(f"time to train: {times[-1] - times[1]}")
+model.save_params(f"./aparams/{dir_var}/params", params)
+
 
 def generate_render(model_path: str, env_name: str, render_output: str):
     params = model.load_params(model_path)
@@ -115,11 +149,17 @@ def generate_render(model_path: str, env_name: str, render_output: str):
         act, _ = jit_inference_fn(state.obs, act_rng)
         state = jit_env_step(state, act)
 
-    html.save_html(render_output,
-                env.sys, [s.qp for s in rollout], True)
+    html.save_html(render_output, env.sys, [s.qp for s in rollout], True)
 
-generate_render(f'./aparams/{dir_var}/params', env_name, os.path.join(folder_name, "final_render.html"))
 
-for model_file in os.listdir(f'./aparams/{dir_var}'):
-    filename = os.path.join(f'./aparams/{dir_var}', model_file)
-    generate_render(filename, env_name, os.path.join(folder_name, f"render-{model_file}.html"))
+generate_render(
+    f"./aparams/{dir_var}/params",
+    env_name,
+    os.path.join(folder_name, "final_render.html"),
+)
+
+for model_file in os.listdir(f"./aparams/{dir_var}"):
+    filename = os.path.join(f"./aparams/{dir_var}", model_file)
+    generate_render(
+        filename, env_name, os.path.join(folder_name, f"render-{model_file}.html")
+    )
