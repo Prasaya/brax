@@ -26,12 +26,14 @@ from brax.io.json import dumps
 def save_html(path: str,
               sys: brax.System,
               qps: List[brax.QP],
-              make_dir: bool = False):
+              make_dir: bool = False,
+              height: int = 480,
+              info: Optional[brax.Info] = None,):
   """Saves trajectory as a HTML file."""
   if make_dir and path:
     MakeDirs(os.path.dirname(path))
   with File(path, 'w') as fout:
-    fout.write(render(sys, qps))
+    fout.write(render(sys, qps, height, info))
 
 
 def render(sys: brax.System,
