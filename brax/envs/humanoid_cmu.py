@@ -49,12 +49,16 @@ class Humanoid(env.Env):
         reward, done, zero = jp.zeros(3)
         metrics = {
             "forward_reward": zero,
-            "target_reward": zero,
+            # "target_reward": zero,
             "reward_linvel": zero,
             "reward_quadctrl": zero,
             "reward_alive": zero,
+            "x_before": zero,
+            "y_before": zero,
+            "z_before": zero,
             "x_position": zero,
             "y_position": zero,
+            "z_position": zero,
             "distance_from_origin": zero,
             "x_velocity": zero,
             "y_velocity": zero,
@@ -83,6 +87,7 @@ class Humanoid(env.Env):
             healthy_reward = self._healthy_reward * is_healthy
 
         ctrl_cost = self._ctrl_cost_weight * jp.sum(jp.square(action))
+        ctrl_cost = 0.0
 
         obs = self._get_obs(qp, info, action)
         reward = forward_reward + healthy_reward - ctrl_cost
@@ -94,8 +99,12 @@ class Humanoid(env.Env):
             reward_linvel=forward_reward,
             reward_quadctrl=-ctrl_cost,
             reward_alive=healthy_reward,
+            x_before=com_before[0],
+            y_before=com_before[1],
+            z_before=com_before[2],
             x_position=com_after[0],
             y_position=com_after[1],
+            z_position=com_after[2],
             distance_from_origin=jp.norm(com_after),
             x_velocity=velocity[0],
             y_velocity=velocity[1],
